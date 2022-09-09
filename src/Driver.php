@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace mon\cache;
 
-use app\cache\exception\CacheException;
+use mon\cache\exception\CacheException;
 
 /**
  * 缓存驱动类
@@ -100,7 +100,11 @@ abstract class Driver
     {
         $values = [];
         foreach ($keys as $key) {
-            $defaultvalue = is_array($default) && isset($default[$key]) ? $default[$key] : $default;
+            if (is_array($default)) {
+                $defaultvalue = isset($default[$key]) ? $default[$key] : null;
+            } else {
+                $defaultvalue = $default;
+            }
             $values[$key] = $this->get($key, $defaultvalue);
         }
 

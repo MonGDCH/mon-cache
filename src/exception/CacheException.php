@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace app\cache\exception;
+namespace mon\cache\exception;
 
 use Exception;
 

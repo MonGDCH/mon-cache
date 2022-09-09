@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace mon\cache\drivers;
 
 use mon\cache\Driver;
-use app\cache\exception\InvalidArgumentException;
+use mon\cache\exception\InvalidArgumentException;
 
 /**
  * 文件缓存驱动
@@ -24,7 +24,7 @@ class File extends Driver
         // 有效时间
         'expire'        => 0,
         // 使用子目录保存
-        'cache_subdir'  => true,
+        'cache_subdir'  => false,
         // 缓存前缀
         'prefix'        => '',
         // 缓存路径

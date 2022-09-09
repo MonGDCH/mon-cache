@@ -7,7 +7,7 @@ namespace mon\cache;
 use mon\cache\Driver;
 use mon\cache\drivers\File;
 use mon\cache\drivers\Redis;
-use app\cache\exception\InvalidArgumentException;
+use mon\cache\exception\InvalidArgumentException;
 
 /**
  * 缓存类
@@ -23,11 +23,19 @@ use app\cache\exception\InvalidArgumentException;
  * @method mixed pull(string $key, $default = null) 读取缓存并删除
  * @method mixed handler() 获取存储引擎
  * 
+ * @see 由于`psr/simple-cache`库没有`PHP7`的版本，这里直接实现，不进行 implements
  * @author Mon <985558837@qq.com>
  * @version 1.0.0
  */
 class Cache
 {
+    /**
+     * 单例实体
+     *
+     * @var Cache
+     */
+    protected static $instance = null;
+
     /**
      * 配置信息
      *
@@ -53,6 +61,21 @@ class Cache
         // Redis驱动
         'redis' => Redis::class
     ];
+
+    /**
+     * 获取单例
+     *
+     * @param array $config 配置
+     * @return Cache
+     */
+    public static function instance(array $config = []): Cache
+    {
+        if (is_null(static::$instance)) {
+            static::$instance = new static($config);
+        }
+
+        return static::$instance;
+    }
 
     /**
      * 后缀方法
@@ -123,7 +146,7 @@ class Cache
      */
     public function connect(string $type = '', array $config = [], bool $reset = false): Driver
     {
-        $type = $type ?: $this->config['type'] ?: 'file';
+        $type = $type ?: $this->config['driver'] ?: 'file';
         $config = $config ?: $this->config;
         if (!isset($this->driver[$type]) || $reset) {
             if (!in_array($type, array_keys($this->driverType))) {
