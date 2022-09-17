@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace mon\cache\drivers;
 
 use mon\cache\Driver;
-use app\cache\exception\CacheException;
+use mon\cache\exception\CacheException;
 
 /**
  * Redis缓存驱动

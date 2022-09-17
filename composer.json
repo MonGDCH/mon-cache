@@ -1,11 +1,11 @@
 {
     "name": "mongdch/mon-cache",
-    "description": "The simple cache utils.",
+    "description": "The PSR-16 simple cache utils.",
     "license": "MIT",
     "homepage": "http://gdmon.com/",
     "keywords": [
-        "Mon",
-        "cache"
+        "cache",
+        "psr-16"
     ],
     "authors": [
         {

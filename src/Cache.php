@@ -23,7 +23,6 @@ use mon\cache\exception\InvalidArgumentException;
  * @method mixed pull(string $key, $default = null) 读取缓存并删除
  * @method mixed handler() 获取存储引擎
  * 
- * @see 由于`psr/simple-cache`库没有`PHP7`的版本，这里直接实现，不进行 implements
  * @author Mon <985558837@qq.com>
  * @version 1.0.0
  */

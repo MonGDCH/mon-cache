@@ -9,6 +9,7 @@ use mon\cache\exception\CacheException;
 /**
  * 缓存驱动类
  * 
+ * @see 由于`psr/simple-cache`库没有`PHP7`的版本，这里直接实现，不进行 implements
  * @author Mon <985558837@qq.com>
  * @version 1.0.0
  */

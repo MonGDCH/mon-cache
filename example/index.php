@@ -39,7 +39,7 @@ $redisConfig = [
 ];
 
 // 获取缓存实例
-$cache = new Cache($redisConfig);
+$cache = new Cache($fileConfig);
 
 // 设置
 $set = $cache->set('ab', 'aaaab');
