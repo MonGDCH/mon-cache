@@ -32,11 +32,13 @@ $redisConfig = [
     // 链接端口
     'port'      => 6379,
     // 链接密码
-    'password'  => '',
-    // 读取超时时间
-    'timeout'   => 0,
+    'auth'      => '',
     // 自定义键前缀
     'prefix'    => '',
+    // redis数据库
+    'database'  => 1,
+    // 读取超时时间
+    'timeout'   => 2,
     // 默认缓存有效时间
     'expire'    => 0,
 ];

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace app\service;
+namespace support\cache;
 
 use mon\env\Config;
 use mon\cache\Cache;
@@ -42,18 +42,24 @@ class CacheService
      * @var array
      */
     protected $config = [
-        // 驱动类型，默认使用文件缓存
-        'driver'        => 'file',
-        // 缓存路径
-        'path'          => RUNTIME_PATH . '/cache',
-        // 使用子目录保存
-        'cache_subdir'  => false,
-        // 数据压缩
-        'data_compress' => false,
+        // 驱动类型
+        'driver'    => 'redis',
+        // 链接host
+        'host'      => '127.0.0.1',
+        // 链接端口
+        'port'      => 6379,
+        // 链接密码
+        'auth'      => '',
         // 自定义键前缀
-        'prefix'        => '',
+        'prefix'    => 'mon_cache_',
+        // redis数据库
+        'database'  => 1,
+        // 读取超时时间
+        'timeout'   => 2,
         // 默认缓存有效时间
-        'expire'        => 0,
+        'expire'    => 0,
+        // 常驻进程下，定时ping保持连接
+        'ping'      => 55,
     ];
 
     /**
@@ -96,6 +102,13 @@ class CacheService
     {
         if (is_null($this->service)) {
             $this->service = new Cache($this->config);
+
+            // 常驻进程，保持redis连接
+            if (IN_HTTP && $this->config['driver'] == 'redis') {
+                \Workerman\Timer::add(!empty($this->config['ping']) ? $this->config['ping'] : 55, function () {
+                    $this->service->handler()->ping();
+                });
+            }
         }
 
         return $this->service;

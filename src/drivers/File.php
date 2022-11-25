@@ -21,7 +21,7 @@ class File extends Driver
      * @var array
      */
     protected $config = [
-        // 有效时间
+        // 默认缓存有效时间
         'expire'        => 0,
         // 使用子目录保存
         'cache_subdir'  => false,

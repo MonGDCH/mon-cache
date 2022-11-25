@@ -25,7 +25,7 @@ class Install
      * @var array
      */
     protected static $file_relation = [
-        'gaia/CacheService.php' => 'app/service/CacheService.php',
+        'gaia/CacheService.php' => 'support/cache/CacheService.php',
     ];
 
     /**

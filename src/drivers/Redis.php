@@ -26,12 +26,14 @@ class Redis extends Driver
         // 链接端口
         'port'      => 6379,
         // 链接密码
-        'password'  => '',
+        'auth'      => '',
         // 自定义键前缀
         'prefix'    => '',
+        // redis数据库
+        'database'  => 1,
         // 读取超时时间
-        'timeout'   => 0,
-        // 缓存有效时间
+        'timeout'   => 2,
+        // 默认缓存有效时间
         'expire'    => 0,
     ];
 
@@ -48,13 +50,17 @@ class Redis extends Driver
         $this->config = array_merge($this->config, $config);
 
         $this->handler = new \Redis();
-        $this->handler->connect($this->config['host'], $this->config['port']);
-        if ($this->config['password']) {
-            $this->handler->auth($this->config['password']);
+        $this->handler->connect($this->config['host'], $this->config['port'], $this->config['timeout']);
+        if ($this->config['auth']) {
+            $this->handler->auth($this->config['auth']);
         }
-        if ($this->config['prefix']) {
-            $this->handler->setOption(\Redis::OPT_PREFIX, $this->config['prefix']);
+        if ($this->config['database']) {
+            $this->handler->select($this->config['database']);
         }
+        // 前缀已经通过 getCacheKey 设置，这里则不需要重复设置
+        // if ($this->config['prefix']) {
+        //     $this->handler->setOption(\Redis::OPT_PREFIX, $this->config['prefix']);
+        // }
         if ($this->config['timeout']) {
             $this->handler->setOption(\Redis::OPT_READ_TIMEOUT, $this->config['timeout']);
         }
