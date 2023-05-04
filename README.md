@@ -28,19 +28,21 @@ $redisConfig = [
     // 驱动类型
     'driver'    => 'redis',
     // 链接host
-    'host'      => '127.0.0.1',
+    'host'      => '192.168.88.101',
     // 链接端口
     'port'      => 6379,
     // 链接密码
-    'auth'      => '',
-    // 自定义键前缀
-    'prefix'    => '',
-    // redis数据库
-    'database'  => 1,
+    'auth'      => 'redis123456',
     // 读取超时时间
     'timeout'   => 2,
+    // 自定义键前缀
+    'prefix'    => '',
     // 默认缓存有效时间
-    'expire'    => 0,
+    'expire'    => 300,
+    // redis数据库
+    'database'  => 2,
+    // 保持链接
+    'persistent' => false,
 ];
 
 // 获取缓存实例

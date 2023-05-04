@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace mon\cache;
 
-use mon\cache\Driver;
 use mon\cache\drivers\File;
 use mon\cache\drivers\Redis;
+use mon\cache\CacheInterface;
 use mon\cache\exception\InvalidArgumentException;
 
 /**
@@ -14,14 +14,12 @@ use mon\cache\exception\InvalidArgumentException;
  *
  * @method mixed get(string $key, mixed $default = null)  获取缓存
  * @method array getMultiple(array $keys, $default = nulll)  批量获取缓存
- * @method boolean set(string $key, mixed $value, integer $expire = null) 设置缓存
+ * @method boolean set(string $key, mixed $value, integer $ttl = null) 设置缓存
  * @method boolean setMultiple(array $values, int $ttl = null)  批量设置缓存
  * @method boolean has(string $key) 是否存在缓存
  * @method boolean delete(string $key) 删除缓存
  * @method boolean deleteMultiple(array $keys) 批量删除缓存
  * @method boolean clear() 清空缓存
- * @method mixed pull(string $key, $default = null) 读取缓存并删除
- * @method mixed handler() 获取存储引擎
  * 
  * @author Mon <985558837@qq.com>
  * @version 1.0.0
@@ -45,7 +43,7 @@ class Cache
     /**
      * 缓存驱动
      *
-     * @var Driver[]
+     * @var CacheInterface[]
      */
     protected $driver = [];
 
@@ -113,7 +111,7 @@ class Cache
      *
      * @return array
      */
-    public function driver(): array
+    public function supportDriver(): array
     {
         return $this->driverType;
     }
@@ -127,8 +125,8 @@ class Cache
      */
     public function extend(string $name, string $drive): Cache
     {
-        if (!is_subclass_of($drive, Driver::class)) {
-            throw new InvalidArgumentException('Driver needs extends the ' . Driver::class);
+        if (!is_subclass_of($drive, CacheInterface::class)) {
+            throw new InvalidArgumentException('Driver needs implements the ' . CacheInterface::class);
         }
 
         $this->driverType[$name] = $drive;
@@ -136,14 +134,14 @@ class Cache
     }
 
     /**
-     * 链接获取缓存驱动
+     * 获取缓存驱动
      *
      * @param string $type      缓存驱动类型
      * @param array $config     初始化缓存驱动实例构造参数，默认配置信息
      * @param boolean $reset    是否重新生成缓存驱动
-     * @return Driver
+     * @return CacheInterface
      */
-    public function connect(string $type = '', array $config = [], bool $reset = false): Driver
+    public function connect(string $type = '', array $config = [], bool $reset = false): CacheInterface
     {
         $type = $type ?: $this->config['driver'] ?: 'file';
         $config = $config ?: $this->config;
@@ -155,6 +153,63 @@ class Cache
         }
 
         return $this->driver[$type];
+    }
+
+    /**
+     * 读取缓存并删除
+     *
+     * @param string $key 缓存变量名
+     * @param mixed $default    默认值
+     * @return mixed
+     */
+    public function pull(string $key, $default = null)
+    {
+        // 先获取值
+        $result = $this->get($key, $default);
+        // 存在key，则删除
+        $this->has($key) && $this->delete($key);
+
+        return $result;
+    }
+
+    /**
+     * 自增
+     *
+     * @param string $key   键名
+     * @param integer $step 步长
+     * @param integer|null $ttl 有效期
+     * @return boolean
+     */
+    public function inc(string $key, int $step = 1, int $ttl = null): bool
+    {
+        // 先获取值
+        $result = $this->get($key);
+        if (!is_numeric($result)) {
+            return false;
+        }
+        // 自增
+        $value = $result + $step;
+        return $this->set($key, $value, $ttl);
+    }
+
+    /**
+     * 自减
+     *
+     * @param string $key   键名
+     * @param integer $step 步长
+     * @param integer|null $ttl 有效期
+     * @return boolean
+     */
+    public function dec(string $key, int $step = 1, int $ttl = null): bool
+    {
+        // 先获取值
+        $result = $this->get($key);
+        if (!is_numeric($result)) {
+            return false;
+        }
+        // 自增
+        $value = $result - $step;
+        return $this->set($key, $value, $ttl);
     }
 
     /**

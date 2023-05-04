@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace mon\cache\drivers;
 
-use mon\cache\Driver;
+use mon\cache\CacheInterface;
 use mon\cache\exception\CacheException;
 
 /**
@@ -13,8 +13,15 @@ use mon\cache\exception\CacheException;
  * @author Mon <985558837@qq.com>
  * @version 1.0.0
  */
-class Redis extends Driver
+class Redis implements CacheInterface
 {
+    /**
+     * Redis实例
+     *
+     * @var \Redis
+     */
+    protected $handler;
+
     /**
      * 配置信息
      *
@@ -35,6 +42,8 @@ class Redis extends Driver
         'timeout'   => 2,
         // 默认缓存有效时间
         'expire'    => 0,
+        // 保持链接
+        'persistent' => false,
     ];
 
     /**
@@ -50,37 +59,85 @@ class Redis extends Driver
         $this->config = array_merge($this->config, $config);
 
         $this->handler = new \Redis();
-        $this->handler->connect($this->config['host'], $this->config['port'], $this->config['timeout']);
+        if ($this->config['persistent']) {
+            // 持久连接
+            $this->handler->pconnect($this->config['host'], $this->config['port'], $this->config['timeout']);
+        } else {
+            // 短连接
+            $this->handler->connect($this->config['host'], $this->config['port'], $this->config['timeout']);
+        }
+        // 密码
         if ($this->config['auth']) {
             $this->handler->auth($this->config['auth']);
         }
+        // 选择库
         if ($this->config['database']) {
             $this->handler->select($this->config['database']);
         }
-        // 前缀已经通过 getCacheKey 设置，这里则不需要重复设置
-        // if ($this->config['prefix']) {
-        //     $this->handler->setOption(\Redis::OPT_PREFIX, $this->config['prefix']);
-        // }
+        // 设置前缀
+        if ($this->config['prefix']) {
+            $this->handler->setOption(\Redis::OPT_PREFIX, $this->config['prefix']);
+        }
+        // 设置超时时间
         if ($this->config['timeout']) {
             $this->handler->setOption(\Redis::OPT_READ_TIMEOUT, $this->config['timeout']);
         }
     }
 
     /**
+     * 获取Redis驱动
+     *
+     * @return \Redis
+     */
+    public function handler(): \Redis
+    {
+        return $this->handler;
+    }
+
+    /**
      * 获取缓存内容
      *
-     * @param  string $name    名称
+     * @param  string $key     键名
      * @param  mixed  $default 默认值
      * @return mixed
      */
-    public function get(string $name, $default = null)
+    public function get(string $key, $default = null)
     {
-        $value = $this->handler()->get($this->getCacheKey($name));
-        if (is_null($value) || false === $value) {
+        $value = $this->handler()->get($key);
+        if (is_null($value) || $value === false) {
             return $default;
         }
 
         return unserialize($value);
+    }
+
+    /**
+     * 批量获取缓存内容
+     *
+     * @param array $keys       缓存变量名一维数组
+     * @param mixed $default    字符串或索引数组，不存在对应键时作为返回值
+     * @return array
+     */
+    public function getMultiple(array $keys, $default = null): array
+    {
+        $values = [];
+        $cacheData = $this->handler()->mGet($keys);
+        $i = 0;
+        foreach ($keys as $k) {
+            if (!isset($cacheData[$i]) || $cacheData[$i] === false) {
+                if (is_array($default)) {
+                    $value = isset($default[$k]) ? $default[$k] : null;
+                } else {
+                    $value = $default;
+                }
+            } else {
+                $value = unserialize($cacheData[$i]);
+            }
+            $values[$k] = $value;
+            $i++;
+        }
+
+        return $values;
     }
 
     /**
@@ -97,9 +154,7 @@ class Redis extends Driver
             $ttl = $this->config['expire'];
         }
 
-        $key = $this->getCacheKey($key);
         $value = serialize($value);
-
         if ($ttl) {
             $result = $this->handler()->setex($key, $ttl, $value);
         } else {
@@ -110,14 +165,40 @@ class Redis extends Driver
     }
 
     /**
-     * 是否存在缓存
+     * 批量设置缓存
      *
-     * @param  string  $key 名称
+     * @param array $values 关联数组作为缓存的键值
+     * @param integer $ttl  有效时间，0为永久
      * @return boolean
      */
-    public function has(string $key): bool
+    public function setMultiple(array $values, int $ttl = null): bool
     {
-        return $this->handler()->exists($this->getCacheKey($key)) ? true : false;
+        if (is_null($ttl)) {
+            $ttl = $this->config['expire'];
+        }
+        if ($ttl) {
+            // 设置有效期
+            $pipe = $this->handler()->multi(\Redis::PIPELINE);
+            foreach ($values as $k => $v) {
+                $pipe->setex($k, $ttl, serialize($v));
+            }
+            $exec = $pipe->exec();
+            $result = true;
+            foreach ($exec as $r) {
+                if ($r !== true) {
+                    $result = false;
+                    break;
+                }
+            }
+        } else {
+            $data = [];
+            foreach ($values as $k => $v) {
+                $data[$k] = serialize($v);
+            }
+            $result = $this->handler()->mSet($data);
+        }
+
+        return $result;
     }
 
     /**
@@ -128,7 +209,30 @@ class Redis extends Driver
      */
     public function delete(string $key): bool
     {
-        return $this->handler()->del($this->getCacheKey($key)) !== false ? true : false;
+        return $this->handler()->del($key) !== false;
+    }
+
+    /**
+     * 批量删除缓存
+     *
+     * @param array $keys   缓存变量名一维数组
+     * @throws CacheException
+     * @return boolean
+     */
+    public function deleteMultiple(array $keys): bool
+    {
+        return call_user_func_array([$this->handler(), 'del'], $keys) !== false;
+    }
+
+    /**
+     * 是否存在缓存
+     *
+     * @param  string  $key 名称
+     * @return boolean
+     */
+    public function has(string $key): bool
+    {
+        return $this->handler()->exists($key) ? true : false;
     }
 
     /**

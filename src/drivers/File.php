@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace mon\cache\drivers;
 
-use mon\cache\Driver;
+use mon\cache\CacheInterface;
+use mon\cache\exception\CacheException;
 use mon\cache\exception\InvalidArgumentException;
 
 /**
@@ -13,7 +14,7 @@ use mon\cache\exception\InvalidArgumentException;
  * @author Mon <985558837@qq.com>
  * @version 1.0.0
  */
-class File extends Driver
+class File implements CacheInterface
 {
     /**
      * 配置信息
@@ -89,6 +90,28 @@ class File extends Driver
     }
 
     /**
+     * 批量获取缓存内容
+     *
+     * @param array $keys       缓存变量名一维数组
+     * @param mixed $default    字符串或索引数组，不存在对应键时作为返回值
+     * @return array
+     */
+    public function getMultiple(array $keys, $default = null): array
+    {
+        $values = [];
+        foreach ($keys as $key) {
+            if (is_array($default)) {
+                $defaultvalue = isset($default[$key]) ? $default[$key] : null;
+            } else {
+                $defaultvalue = $default;
+            }
+            $values[$key] = $this->get($key, $defaultvalue);
+        }
+
+        return $values;
+    }
+
+    /**
      * 写入缓存
      *
      * @param string    $key    缓存变量名
@@ -96,7 +119,7 @@ class File extends Driver
      * @param integer   $expire  有效时间 0为永久
      * @return boolean
      */
-    public function set(string $key, $value, int $expire = null): bool
+    public function set(string $key, $value, int $ttl = null): bool
     {
         if (is_null($expire)) {
             $expire = $this->config['expire'];
@@ -115,6 +138,25 @@ class File extends Driver
         }
 
         return false;
+    }
+
+    /**
+     * 批量设置缓存
+     *
+     * @param array $values 关联数组作为缓存的键值
+     * @param integer $ttl  有效时间，0为永久
+     * @throws CacheException
+     * @return boolean
+     */
+    public function setMultiple(array $values, int $ttl = null): bool
+    {
+        foreach ($values as $key => $value) {
+            if (!$this->set($key, $value, $ttl)) {
+                throw new CacheException("Cache the [{$key}] value faild");
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -138,7 +180,25 @@ class File extends Driver
     {
         $filename = $this->getCacheKey($key);
         if (file_exists($filename)) {
-            unlink($filename);
+            return unlink($filename);
+        }
+
+        return true;
+    }
+
+    /**
+     * 批量删除缓存
+     *
+     * @param array $keys   缓存变量名一维数组
+     * @throws CacheException
+     * @return boolean
+     */
+    public function deleteMultiple(array $keys): bool
+    {
+        foreach ($keys as $key) {
+            if (!$this->delete($key)) {
+                throw new CacheException("Delete the [{$key}] value faild");
+            }
         }
 
         return true;

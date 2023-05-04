@@ -1,12 +1,12 @@
 <?php
 
 use mon\cache\Cache;
-use mon\cache\Driver;
+use mon\cache\CacheInterface;
 
 require __DIR__ . '/../vendor/autoload.php';
 
 // 扩展自定义缓存类型，需要继承Driver类
-class MyDriver extends Driver
+class MyDriver implements CacheInterface
 {
     public function __construct(array $config = [])
     {
@@ -66,6 +66,21 @@ class MyDriver extends Driver
      * @return boolean
      */
     public function clear(): bool
+    {
+        return true;
+    }
+
+    public function getMultiple(array $keys, $default = null): array
+    {
+        return [];
+    }
+
+    public function setMultiple(array $values, ?int $ttl = null): bool
+    {
+        return true;
+    }
+
+    public function deleteMultiple(array $keys): bool
     {
         return true;
     }
