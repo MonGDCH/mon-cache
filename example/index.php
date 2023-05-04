@@ -1,49 +1,58 @@
 <?php
 
 use mon\cache\Cache;
+use mon\cache\drivers\File;
+use mon\cache\drivers\Redis;
 
 require __DIR__ . '/../vendor/autoload.php';
 
-// 文件缓存配置
-$fileConfig = [
-    // 驱动类型
-    'driver'        => 'file',
-    // 使用子目录保存
-    'cache_subdir'  => false,
-    // 缓存路径
-    'path'          => __DIR__ . '/cache',
-    // 数据压缩
-    'data_compress' => false,
-    // 自定义键前缀
-    'prefix'        => '',
-    // 默认缓存有效时间
-    'expire'        => 0,
-];
-
-// Redis缓存配置
-$redisConfig = [
-    // 驱动类型
-    'driver'    => 'redis',
-    // 链接host
-    'host'      => '192.168.88.101',
-    // 链接端口
-    'port'      => 6379,
-    // 链接密码
-    'auth'      => 'redis123456',
-    // 读取超时时间
-    'timeout'   => 2,
-    // 自定义键前缀
-    'prefix'    => '',
-    // 默认缓存有效时间
-    'expire'    => 300,
-    // redis数据库
-    'database'  => 2,
-    // 保持链接
-    'persistent' => false,
+// 配置信息
+$config = [
+    // 默认缓存驱动
+    'default'   => 'redis',
+    // 缓存驱动
+    'stores'    => [
+        // 文件缓存
+        'file'  => [
+            // 驱动器
+            'driver'        => File::class,
+            // 默认缓存有效时间
+            'expire'        => 0,
+            // 使用子目录保存
+            'cache_subdir'  => false,
+            // 缓存前缀
+            'prefix'        => '',
+            // 缓存路径
+            'path'          => __DIR__ . '/cache',
+            // 数据压缩
+            'data_compress' => false,
+        ],
+        // Redis缓存
+        'redis' => [
+            // 驱动器
+            'driver'        => Redis::class,
+            // 链接host
+            'host'          => '192.168.88.101',
+            // 链接端口
+            'port'          => 6379,
+            // 链接密码
+            'auth'          => 'redis123456',
+            // 读取超时时间
+            'timeout'       => 2,
+            // 自定义键前缀
+            'prefix'        => '',
+            // 默认缓存有效时间
+            'expire'        => 300,
+            // redis数据库
+            'database'      => 2,
+            // 保持链接
+            'persistent'    => false,
+        ]
+    ]
 ];
 
 // 获取缓存实例
-$cache = new Cache($redisConfig);
+$cache = new Cache($config);
 
 // 设置
 // $set = $cache->set('ab', 'aaaab');
@@ -52,8 +61,8 @@ $cache = new Cache($redisConfig);
 // var_dump($set);
 
 // 批量设置
-// $mSet = $cache->setMultiple(['a' => 1, 'b' => '2', 'c' => -3, 'd' => 4, 'e' => 'abc']);
-// var_dump($mSet);
+$mSet = $cache->setMultiple(['a' => 1, 'b' => '2', 'c' => -3, 'd' => 4, 'e' => 'abc']);
+var_dump($mSet);
 
 // 获取
 $data = $cache->get('ab', 'cd');

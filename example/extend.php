@@ -86,21 +86,19 @@ class MyDriver implements CacheInterface
     }
 }
 
-// 自定义配置
-$myConfig = [
-    // 默认驱动类型
-    'driver'    => 'mydirver',
-    // 自定义配置
-    'desc'      => 'my cache driver',
-];
-
 // 创建缓存实例
 $cache = new Cache();
 // 扩展自定义缓存
-$cache->extend('mydirver', MyDriver::class);
-// 配置
-$cache->setConfig($myConfig);
-// 使用缓存
-$data = $cache->get('test');
+$cache->extend('my_driver', [
+    'driver'    => MyDriver::class,
+    'desc'      => 'My Driver'
+]);
+
+// 设置默认使用的缓存驱动
+// $cache->setDefaultDriver('my_driver');
+// $data = $cache->get('demo');
+
+// 使用自定义扩展的缓存
+$data = $cache->store('my_driver')->get('test');
 
 var_dump($data);

@@ -38,7 +38,49 @@ class Cache
      *
      * @var array
      */
-    protected $config = [];
+    protected $config = [
+        // 默认缓存驱动
+        'default'   => 'file',
+        // 缓存驱动
+        'stores'    => [
+            // 文件缓存
+            'file'  => [
+                // 驱动器
+                'driver'        => File::class,
+                // 默认缓存有效时间
+                'expire'        => 0,
+                // 使用子目录保存
+                'cache_subdir'  => false,
+                // 缓存前缀
+                'prefix'        => '',
+                // 缓存路径
+                'path'          => '',
+                // 数据压缩
+                'data_compress' => false,
+            ],
+            // Redis缓存
+            'redis' => [
+                // 驱动器
+                'driver'        => Redis::class,
+                // 链接host
+                'host'          => '127.0.0.1',
+                // 链接端口
+                'port'          => 6379,
+                // 链接密码
+                'auth'          => '',
+                // 自定义键前缀
+                'prefix'        => '',
+                // redis数据库
+                'database'      => 1,
+                // 读取超时时间
+                'timeout'       => 2,
+                // 默认缓存有效时间
+                'expire'        => 0,
+                // 持久链接
+                'persistent'    => false,
+            ]
+        ]
+    ];
 
     /**
      * 缓存驱动
@@ -46,18 +88,6 @@ class Cache
      * @var CacheInterface[]
      */
     protected $driver = [];
-
-    /**
-     * 驱动类型
-     *
-     * @var array
-     */
-    protected $driverType = [
-        // 文件驱动
-        'file'  => File::class,
-        // Redis驱动
-        'redis' => Redis::class
-    ];
 
     /**
      * 获取单例
@@ -81,7 +111,7 @@ class Cache
      */
     public function __construct(array $config = [])
     {
-        $this->config = array_merge($this->config, $config);
+        $this->setConfig($config);
     }
 
     /**
@@ -107,29 +137,35 @@ class Cache
     }
 
     /**
-     * 获取支持的驱动
-     *
-     * @return array
-     */
-    public function supportDriver(): array
-    {
-        return $this->driverType;
-    }
-
-    /**
      * 扩展支持的驱动
      *
-     * @param string $name  驱动名称
-     * @param string $drive 驱动类名
+     * @param string $name   驱动名称
+     * @param array  $config 驱动配置
      * @return Cache
      */
-    public function extend(string $name, string $drive): Cache
+    public function extend(string $name, array $config): Cache
     {
-        if (!is_subclass_of($drive, CacheInterface::class)) {
+        if (!isset($config['driver']) || !is_subclass_of($config['driver'], CacheInterface::class)) {
             throw new InvalidArgumentException('Driver needs implements the ' . CacheInterface::class);
         }
 
-        $this->driverType[$name] = $drive;
+        $this->config['stores'][$name] = $config;
+        return $this;
+    }
+
+    /**
+     * 设置默认缓存驱动
+     *
+     * @param string $name  驱动名
+     * @return Cache
+     */
+    public function setDefaultDriver(string $name): Cache
+    {
+        if (!isset($this->config['stores'][$name])) {
+            throw new InvalidArgumentException('Driver type not supported');
+        }
+
+        $this->config['default'] = $name;
         return $this;
     }
 
@@ -139,17 +175,27 @@ class Cache
      * @param string $type      缓存驱动类型
      * @param array $config     初始化缓存驱动实例构造参数，默认配置信息
      * @param boolean $reset    是否重新生成缓存驱动
+     * @throws InvalidArgumentException
      * @return CacheInterface
      */
-    public function connect(string $type = '', array $config = [], bool $reset = false): CacheInterface
+    public function store(string $type = '', array $config = [], bool $reset = false): CacheInterface
     {
-        $type = $type ?: $this->config['driver'] ?: 'file';
-        $config = $config ?: $this->config;
+        $type = $type ?: $this->config['default'];
+        // 加载驱动
         if (!isset($this->driver[$type]) || $reset) {
-            if (!in_array($type, array_keys($this->driverType))) {
-                throw new InvalidArgumentException("Cache driver type is not supported");
+            // 获取驱动配置
+            if (empty($config)) {
+                if (!isset($this->config['stores'][$type])) {
+                    throw new InvalidArgumentException("Cache driver type is not supported");
+                }
+                $config = $this->config['stores'][$type];
             }
-            $this->driver[$type] = new $this->driverType[$type]($config);
+            // 验证有效驱动
+            if (!isset($config['driver']) || !is_subclass_of($config['driver'], CacheInterface::class)) {
+                throw new InvalidArgumentException('Driver [' . $type . '] needs implements the ' . CacheInterface::class);
+            }
+            $driver = $config['driver'];
+            $this->driver[$type] = new $driver($config);
         }
 
         return $this->driver[$type];
@@ -221,6 +267,6 @@ class Cache
      */
     public function __call($method, $args)
     {
-        return call_user_func_array([$this->connect(), $method], $args);
+        return call_user_func_array([$this->store(), $method], $args);
     }
 }
