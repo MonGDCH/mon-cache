@@ -26,14 +26,15 @@ class Install
      */
     protected static $file_relation = [
         'gaia/CacheService.php' => 'support/cache/CacheService.php',
+        'gaia/config.php' => 'config/cache.php',
     ];
 
     /**
-     * 安装
+     * 发布安装
      *
      * @return void
      */
-    public static function install()
+    public static function publish()
     {
         // 创建框架文件
         $source_path = __DIR__ . DIRECTORY_SEPARATOR;
@@ -42,14 +43,5 @@ class Install
             $sourceFile = $source_path . $source;
             Plugin::copyFile($sourceFile, $dest, true);
         }
-    }
-
-    /**
-     * 卸载
-     *
-     * @return void
-     */
-    public static function uninstall()
-    {
     }
 }

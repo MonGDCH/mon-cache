@@ -12,6 +12,7 @@ use mon\cache\exception\InvalidArgumentException;
 /**
  * 缓存类
  *
+ * @method mixed ping() Ping
  * @method mixed get(string $key, mixed $default = null)  获取缓存
  * @method array getMultiple(array $keys, $default = nulll)  批量获取缓存
  * @method boolean set(string $key, mixed $value, integer $ttl = null) 设置缓存
@@ -26,13 +27,6 @@ use mon\cache\exception\InvalidArgumentException;
  */
 class Cache
 {
-    /**
-     * 单例实体
-     *
-     * @var Cache
-     */
-    protected static $instance = null;
-
     /**
      * 配置信息
      *
@@ -88,21 +82,6 @@ class Cache
      * @var CacheInterface[]
      */
     protected $driver = [];
-
-    /**
-     * 获取单例
-     *
-     * @param array $config 配置
-     * @return Cache
-     */
-    public static function instance(array $config = []): Cache
-    {
-        if (is_null(static::$instance)) {
-            static::$instance = new static($config);
-        }
-
-        return static::$instance;
-    }
 
     /**
      * 后缀方法

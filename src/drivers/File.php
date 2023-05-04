@@ -56,6 +56,15 @@ class File implements CacheInterface
     }
 
     /**
+     * Ping
+     *
+     * @return void
+     */
+    public function ping()
+    {
+    }
+
+    /**
      * 获取缓存内容
      *
      * @param  string $key    名称
@@ -121,7 +130,7 @@ class File implements CacheInterface
      */
     public function set(string $key, $value, int $ttl = null): bool
     {
-        if (is_null($expire)) {
+        if (is_null($ttl)) {
             $expire = $this->config['expire'];
         }
         $filename = $this->getCacheKey($key);

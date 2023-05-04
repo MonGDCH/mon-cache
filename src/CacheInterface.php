@@ -6,13 +6,20 @@ namespace mon\cache;
 
 /**
  * 缓存驱动接口
- * @see 由于`psr/simple-cache`库没有`PHP7`的版本，这里自行实现
+ * @see 由于`psr/simple-cache`库没有`PHP7`的版本，这里自行实现，并扩展`ping`方法
  * 
  * @author Mon <985558837@qq.com>
  * @version 1.0.0
  */
 interface CacheInterface
 {
+    /**
+     * Ping
+     *
+     * @return mixed
+     */
+    public function ping();
+
     /**
      * 从缓存中取出值
      *

@@ -95,6 +95,16 @@ class Redis implements CacheInterface
     }
 
     /**
+     * Ping
+     *
+     * @return mixed
+     */
+    public function ping()
+    {
+        return $this->handler()->ping();
+    }
+
+    /**
      * 获取缓存内容
      *
      * @param  string $key     键名

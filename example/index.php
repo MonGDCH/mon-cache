@@ -9,7 +9,7 @@ require __DIR__ . '/../vendor/autoload.php';
 // 配置信息
 $config = [
     // 默认缓存驱动
-    'default'   => 'redis',
+    'default'   => 'file',
     // 缓存驱动
     'stores'    => [
         // 文件缓存
@@ -32,19 +32,19 @@ $config = [
             // 驱动器
             'driver'        => Redis::class,
             // 链接host
-            'host'          => '192.168.88.101',
+            'host'          => '127.0.0.1',
             // 链接端口
             'port'          => 6379,
             // 链接密码
-            'auth'          => 'redis123456',
+            'auth'          => '',
             // 读取超时时间
             'timeout'       => 2,
             // 自定义键前缀
             'prefix'        => '',
             // 默认缓存有效时间
-            'expire'        => 300,
+            'expire'        => 0,
             // redis数据库
-            'database'      => 2,
+            'database'      => 1,
             // 保持链接
             'persistent'    => false,
         ]
