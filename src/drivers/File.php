@@ -58,6 +58,7 @@ class File implements CacheInterface
     /**
      * Ping
      *
+     * @throws \Exception
      * @return void
      */
     public function ping()

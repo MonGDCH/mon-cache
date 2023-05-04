@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace support\cache;
 
+use Exception;
 use mon\env\Config;
+use mon\log\Logger;
+use mon\util\Event;
 use mon\cache\Cache;
 use mon\util\Instance;
 
@@ -45,15 +48,36 @@ class CacheService
     protected $ping_timer;
 
     /**
+     * 最大重启次数
+     *
+     * @var integer
+     */
+    protected $err_max = 5;
+
+    /**
+     * 当前重启次数
+     *
+     * @var integer
+     */
+    protected $err_count = 0;
+
+    /**
+     * 缓存服务配置信息
+     *
+     * @var array
+     */
+    protected $config = [];
+
+    /**
      * 构造方法
      */
     protected function __construct()
     {
-        $config = Config::instance()->get('cache', []);
-        $this->service = new Cache($config);
+        $this->config = Config::instance()->get('cache', []);
+        $this->service = new Cache($this->config);
         // 是否开启Ping
-        if ($config['ping'] > 0) {
-            $this->keep($config['ping']);
+        if ($this->config['ping'] > 0) {
+            $this->keep($this->config['ping']);
         }
     }
 
@@ -76,7 +100,24 @@ class CacheService
     public function keep(int $ping = 55)
     {
         $this->ping_timer = \Workerman\Timer::add($ping, function () {
-            $this->getService()->ping();
+            try {
+                $this->getService()->ping();
+                // 连接正常，清空错误计数
+                $this->err_count = 0;
+            } catch (Exception $e) {
+                $this->err_count++;
+                Logger::instance()->channel()->error('Cache Service Exception. message => ' . $e->getMessage() . ' code => ' . $e->getCode());
+                // 上报缓存错误事件
+                Event::instance()->trigger('cache_error', ['err_count' => $this->err_count, 'config' => $this->config]);
+                if ($this->err_max >= $this->err_count) {
+                    // 一定次数内，自动重启服务
+                    Logger::instance()->channel()->info('Cache Service restart');
+                    $this->service = new Cache($this->config);
+                } else {
+                    // 超过失败最大是，停止保活
+                    $this->unKeep();
+                }
+            }
         });
     }
 
@@ -88,6 +129,7 @@ class CacheService
     public function unKeep()
     {
         \Workerman\Timer::del($this->ping_timer);
+        Logger::instance()->channel()->info('Cache Service keep stop.');
     }
 
     /**

@@ -87,6 +87,7 @@ class Redis implements CacheInterface
     /**
      * 获取Redis驱动
      *
+     * @throws \Exception
      * @return \Redis
      */
     public function handler(): \Redis

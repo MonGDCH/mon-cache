@@ -16,6 +16,7 @@ interface CacheInterface
     /**
      * Ping
      *
+     * @throws \Exception
      * @return mixed
      */
     public function ping();
