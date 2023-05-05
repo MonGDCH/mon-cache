@@ -10,11 +10,20 @@
 
 return [
     // 默认缓存驱动
-    'default'   => 'file',
-    // 定时Ping通服务，单位秒，0则不定时Ping通
-    'ping'      => 55,
+    'default'       => 'file',
+    // 服务保活
+    'keep_alive'    => [
+        // 是否启动
+        'enable'    => true,
+        // 定时Ping通服务，单位秒，0则不定时Ping通
+        'ping'      => 55,
+        // 最大重启服务次数
+        'reset_max' => 3,
+        // 异常事件名称
+        'event'     => 'cache_error'
+    ],
     // 缓存驱动
-    'stores'    => [
+    'stores'        => [
         // 文件缓存
         'file'  => [
             // 驱动器

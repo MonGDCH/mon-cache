@@ -48,13 +48,6 @@ class CacheService
     protected $ping_timer;
 
     /**
-     * 最大重启次数
-     *
-     * @var integer
-     */
-    protected $err_max = 5;
-
-    /**
      * 当前重启次数
      *
      * @var integer
@@ -69,15 +62,32 @@ class CacheService
     protected $config = [];
 
     /**
+     * 服务存活保障配置
+     *
+     * @var array
+     */
+    protected $keepAliveConfig = [
+        // 是否启动
+        'enable'    => true,
+        // 定时Ping通服务，单位秒，0则不定时Ping通
+        'ping'      => 55,
+        // 最大重启服务次数
+        'reset_max' => 3,
+        // 异常事件名称
+        'event'     => 'cache_error'
+    ];
+
+    /**
      * 构造方法
      */
     protected function __construct()
     {
         $this->config = Config::instance()->get('cache', []);
         $this->service = new Cache($this->config);
+        $this->keepAliveConfig = $this->config['keep_alive'];
         // 是否开启Ping
-        if ($this->config['ping'] > 0) {
-            $this->keep($this->config['ping']);
+        if ($this->keepAliveConfig['enable']) {
+            $this->keep($this->keepAliveConfig['ping'], $this->keepAliveConfig['reset_max'], $this->keepAliveConfig['event']);
         }
     }
 
@@ -95,11 +105,13 @@ class CacheService
      * 使用Ping保持连接
      *
      * @param integer $ping ping的间隔
+     * @param integer $max  最大重启次数
+     * @param string $evnet 异常事件名
      * @return void
      */
-    public function keep(int $ping = 55)
+    public function keep(int $ping = 55, int $max = 3, string $evnet = 'cache_error')
     {
-        $this->ping_timer = \Workerman\Timer::add($ping, function () {
+        $this->ping_timer = \Workerman\Timer::add($ping, function (int $max, string $evnet) {
             try {
                 $this->getService()->ping();
                 // 连接正常，清空错误计数
@@ -108,8 +120,8 @@ class CacheService
                 $this->err_count++;
                 Logger::instance()->channel()->error('Cache Service Exception. message => ' . $e->getMessage() . ' code => ' . $e->getCode());
                 // 上报缓存错误事件
-                Event::instance()->trigger('cache_error', ['err_count' => $this->err_count, 'config' => $this->config]);
-                if ($this->err_max >= $this->err_count) {
+                Event::instance()->trigger($evnet, ['err_count' => $max, 'config' => $this->config]);
+                if ($this->err_max >= $max) {
                     // 一定次数内，自动重启服务
                     Logger::instance()->channel()->info('Cache Service restart');
                     $this->service = new Cache($this->config);
@@ -118,7 +130,7 @@ class CacheService
                     $this->unKeep();
                 }
             }
-        });
+        }, [$max, $evnet]);
     }
 
     /**
