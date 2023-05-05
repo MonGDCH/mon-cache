@@ -85,3 +85,7 @@ $clear = $cache->clear();
 
 
 ```
+
+### Gaia框架支持
+
+`composer`安装后执行`php gaia vendor:publish mon\cache`即可
