@@ -61,7 +61,7 @@ class Redis implements CacheInterface
         $this->handler = new \Redis();
         if ($this->config['persistent']) {
             // 持久连接
-            $this->handler->pconnect($this->config['host'], $this->config['port'], $this->config['timeout']);
+            $this->handler->pconnect($this->config['host'], $this->config['port'], $this->config['timeout'], 'persistent_id_' . $this->config['database']);
         } else {
             // 短连接
             $this->handler->connect($this->config['host'], $this->config['port'], $this->config['timeout']);
