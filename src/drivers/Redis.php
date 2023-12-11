@@ -112,7 +112,7 @@ class Redis implements CacheInterface
      * @param  mixed  $default 默认值
      * @return mixed
      */
-    public function get(string $key, $default = null)
+    public function get($key, $default = null)
     {
         $value = $this->handler()->get($key);
         if (is_null($value) || $value === false) {
@@ -129,7 +129,7 @@ class Redis implements CacheInterface
      * @param mixed $default    字符串或索引数组，不存在对应键时作为返回值
      * @return array
      */
-    public function getMultiple(array $keys, $default = null): array
+    public function getMultiple($keys, $default = null): array
     {
         $values = [];
         $cacheData = $this->handler()->mGet($keys);
@@ -159,7 +159,7 @@ class Redis implements CacheInterface
      * @param integer $expire  有效时间 0为永久
      * @return boolean
      */
-    public function set(string $key, $value, int $ttl = null): bool
+    public function set($key, $value, $ttl = null): bool
     {
         if (is_null($ttl)) {
             $ttl = $this->config['expire'];
@@ -182,7 +182,7 @@ class Redis implements CacheInterface
      * @param integer $ttl  有效时间，0为永久
      * @return boolean
      */
-    public function setMultiple(array $values, int $ttl = null): bool
+    public function setMultiple($values, $ttl = null): bool
     {
         if (is_null($ttl)) {
             $ttl = $this->config['expire'];
@@ -218,7 +218,7 @@ class Redis implements CacheInterface
      * @param string $key 缓存变量名
      * @return boolean
      */
-    public function delete(string $key): bool
+    public function delete($key): bool
     {
         return $this->handler()->del($key) !== false;
     }
@@ -230,7 +230,7 @@ class Redis implements CacheInterface
      * @throws CacheException
      * @return boolean
      */
-    public function deleteMultiple(array $keys): bool
+    public function deleteMultiple($keys): bool
     {
         return call_user_func_array([$this->handler(), 'del'], $keys) !== false;
     }
@@ -241,7 +241,7 @@ class Redis implements CacheInterface
      * @param  string  $key 名称
      * @return boolean
      */
-    public function has(string $key): bool
+    public function has($key): bool
     {
         return $this->handler()->exists($key) ? true : false;
     }

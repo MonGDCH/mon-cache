@@ -72,7 +72,7 @@ class File implements CacheInterface
      * @param  mixed  $default 默认值
      * @return mixed
      */
-    public function get(string $key, $default = null)
+    public function get($key, $default = null)
     {
         $filename = $this->getCacheKey($key);
         if (!is_file($filename)) {
@@ -106,7 +106,7 @@ class File implements CacheInterface
      * @param mixed $default    字符串或索引数组，不存在对应键时作为返回值
      * @return array
      */
-    public function getMultiple(array $keys, $default = null): array
+    public function getMultiple($keys, $default = null): array
     {
         $values = [];
         foreach ($keys as $key) {
@@ -129,10 +129,10 @@ class File implements CacheInterface
      * @param integer   $expire  有效时间 0为永久
      * @return boolean
      */
-    public function set(string $key, $value, int $ttl = null): bool
+    public function set($key, $value, $ttl = null): bool
     {
         if (is_null($ttl)) {
-            $expire = $this->config['expire'];
+            $ttl = $this->config['expire'];
         }
         $filename = $this->getCacheKey($key);
         $data = serialize($value);
@@ -140,7 +140,7 @@ class File implements CacheInterface
             //数据压缩
             $data = gzcompress($data, 3);
         }
-        $data   = "<?php\n//" . sprintf('%012d', $expire) . $data . "\n?>";
+        $data   = "<?php\n//" . sprintf('%012d', $ttl) . $data . "\n?>";
         $result = file_put_contents($filename, $data);
         if ($result) {
             clearstatcache();
@@ -158,7 +158,7 @@ class File implements CacheInterface
      * @throws CacheException
      * @return boolean
      */
-    public function setMultiple(array $values, int $ttl = null): bool
+    public function setMultiple($values, $ttl = null): bool
     {
         foreach ($values as $key => $value) {
             if (!$this->set($key, $value, $ttl)) {
@@ -175,7 +175,7 @@ class File implements CacheInterface
      * @param  string  $key 名称
      * @return boolean
      */
-    public function has(string $key): bool
+    public function has($key): bool
     {
         return $this->get($key) ? true : false;
     }
@@ -186,7 +186,7 @@ class File implements CacheInterface
      * @param string $key 缓存变量名
      * @return boolean
      */
-    public function delete(string $key): bool
+    public function delete($key): bool
     {
         $filename = $this->getCacheKey($key);
         if (file_exists($filename)) {
@@ -203,7 +203,7 @@ class File implements CacheInterface
      * @throws CacheException
      * @return boolean
      */
-    public function deleteMultiple(array $keys): bool
+    public function deleteMultiple($keys): bool
     {
         foreach ($keys as $key) {
             if (!$this->delete($key)) {
