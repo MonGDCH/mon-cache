@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace support\cache;
 
-use Exception;
+use Throwable;
 use mon\env\Config;
 use mon\log\Logger;
 use mon\util\Event;
@@ -116,12 +116,12 @@ class CacheService
                 $this->getService()->ping();
                 // 连接正常，清空错误计数
                 $this->err_count = 0;
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 $this->err_count++;
                 Logger::instance()->channel()->error('Cache Service Exception. message => ' . $e->getMessage() . ' code => ' . $e->getCode());
                 // 上报缓存错误事件
                 Event::instance()->trigger($evnet, ['err_count' => $max, 'config' => $this->config]);
-                if ($this->err_max >= $max) {
+                if ($max >= $this->err_count) {
                     // 一定次数内，自动重启服务
                     Logger::instance()->channel()->info('Cache Service restart');
                     $this->service = new Cache($this->config);
