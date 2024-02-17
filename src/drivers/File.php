@@ -22,8 +22,6 @@ class File implements CacheInterface
      * @var array
      */
     protected $config = [
-        // 默认缓存有效时间
-        'expire'        => 0,
         // 使用子目录保存
         'cache_subdir'  => false,
         // 缓存前缀
@@ -32,6 +30,8 @@ class File implements CacheInterface
         'path'          => '',
         // 数据压缩
         'data_compress' => false,
+        // 默认缓存有效时间
+        'expire'        => 0,
     ];
 
     /**

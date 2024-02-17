@@ -40,10 +40,10 @@ class Redis implements CacheInterface
         'database'  => 1,
         // 读取超时时间
         'timeout'   => 2,
-        // 默认缓存有效时间
-        'expire'    => 0,
         // 保持链接
         'persistent' => false,
+        // 默认缓存有效时间
+        'expire'    => 0,
     ];
 
     /**

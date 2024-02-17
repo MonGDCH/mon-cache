@@ -14,11 +14,11 @@ return [
     // 服务保活
     'keep_alive'    => [
         // 是否启动
-        'enable'    => true,
-        // 定时Ping通服务，单位秒，0则不定时Ping通
-        'ping'      => 55,
+        'enable'    => env('CACHE_KEEP', true),
+        // 定时Ping通服务，单位秒，0则不定时ping通服务
+        'ping'      => env('CACHE_PING', 55),
         // 最大重启服务次数
-        'reset_max' => 3,
+        'reset_max' => env('CACHE_RESET', 3),
         // 异常事件名称
         'event'     => 'cache_error'
     ],
@@ -28,37 +28,42 @@ return [
         'file'  => [
             // 驱动器
             'driver'        => \mon\cache\drivers\File::class,
-            // 默认缓存有效时间
-            'expire'        => 0,
             // 使用子目录保存
-            'cache_subdir'  => false,
+            'cache_subdir'  => env('CACHE_SUBDIR', false),
             // 缓存前缀
-            'prefix'        => '',
+            'prefix'        => env('CACHE_PREFIX', ''),
             // 缓存路径
-            'path'          => RUNTIME_PATH . '/cache',
+            'path'          => env('CACHE_PATH', RUNTIME_PATH . '/cache'),
             // 数据压缩
-            'data_compress' => false,
+            'data_compress' => env('CACHE_COMPRESS', false),
+            // 默认缓存有效时间
+            'expire'        => env('CACHE_EXPIRE', 0),
         ],
         // Redis缓存
         'redis' => [
             // 驱动器
             'driver'        => \mon\cache\drivers\Redis::class,
             // 链接host
-            'host'          => '127.0.0.1',
+            'host'          => env('CACHE_HOST', '127.0.0.1'),
             // 链接端口
-            'port'          => 6379,
+            'port'          => env('CACHE_PORT', 6379),
             // 链接密码
-            'auth'          => '',
-            // 读取超时时间
-            'timeout'       => 2,
+            'auth'          => env('CACHE_AUTH', ''),
             // 自定义键前缀
-            'prefix'        => '',
-            // 默认缓存有效时间
-            'expire'        => 0,
+            'prefix'        => env('CACHE_PREFIX', ''),
             // redis数据库
-            'database'      => 1,
+            'database'      => env('CACHE_DB', 1),
+            // 读取超时时间
+            'timeout'       => env('CACHE_TIMEOUT', 2),
             // 保持链接
-            'persistent'    => false,
+            'persistent'    => env('CACHE_PERSISTENT', false),
+            // 默认缓存有效时间
+            'expire'        => env('CACHE_EXPIRE', 0),
+        ],
+        // gaia内置redis缓存实例
+        'rdb' => [
+            // 驱动器
+            'driver'        => \support\cache\extend\Rdb::class
         ]
     ]
 ];
