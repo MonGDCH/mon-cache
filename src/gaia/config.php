@@ -63,7 +63,9 @@ return [
         // gaia内置redis缓存实例
         'rdb' => [
             // 驱动器
-            'driver'        => \support\cache\extend\Rdb::class
+            'driver'        => \support\cache\extend\Rdb::class,
+            // 默认缓存有效时间
+            'expire'        => env('CACHE_EXPIRE', 0),
         ]
     ]
 ];
