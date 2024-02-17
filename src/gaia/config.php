@@ -10,7 +10,7 @@
 
 return [
     // 默认缓存驱动
-    'default'       => 'file',
+    'default'       => env('CACHE_TYPE', 'file'),
     // 服务保活
     'keep_alive'    => [
         // 是否启动
