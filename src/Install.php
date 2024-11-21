@@ -31,6 +31,26 @@ class Install
     ];
 
     /**
+     * 安装
+     *
+     * @return void
+     */
+    public static function install()
+    {
+        echo '[mon-cache] installation successful, please execute `php gaia vendor:publish mon\cache`' . PHP_EOL;
+    }
+
+    /**
+     * 更新升级
+     *
+     * @return void
+     */
+    public static function update()
+    {
+        echo '[mon-cache] upgrade successful, please execute `php gaia vendor:publish mon\cache`' . PHP_EOL;
+    }
+
+    /**
      * 发布安装
      *
      * @return void
