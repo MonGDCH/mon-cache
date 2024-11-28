@@ -25,6 +25,7 @@ use mon\util\Instance;
  * @method boolean inc(string $key, int $step = 1, int $ttl = null) 自增
  * @method boolean dec(string $key, int $step = 1, int $ttl = null) 自减
  * @method mixed pull(string $key, $default = null) 读取缓存并删除
+ * @method \mon\cache\CacheInterface store(string $type = '', array $config = [], bool $reset = false)   获取缓存服务
  * 
  * @author Mon <985558837@qq.com>
  * @version 1.0.0

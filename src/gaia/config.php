@@ -24,6 +24,25 @@ return [
     ],
     // 缓存驱动
     'stores'        => [
+        // Gaia内置redis缓存实例
+        'rdb' => [
+            // 驱动器
+            'driver'        => \support\cache\extend\Rdb::class,
+            // 默认缓存有效时间
+            'expire'        => env('CACHE_EXPIRE', 0),
+        ],
+        // Gaia在使用sqlite作为缓存，依赖 mongdch/mon-think-orm 库
+        'sqlite' => [
+            'driver'        => \support\cache\extend\Sqlite::class,
+            // 缓存的表
+            'table'         => 'gaia_cache',
+            // 数据库
+            'database'      => ROOT_PATH . '/database/sqlite.db',
+            // 是否开启SQL监听
+            'trigger_sql'   => false,
+            // 默认缓存有效时间
+            'expire'        => env('CACHE_EXPIRE', 0),
+        ],
         // 文件缓存
         'file'  => [
             // 驱动器
@@ -57,13 +76,6 @@ return [
             'timeout'       => env('CACHE_TIMEOUT', 2),
             // 保持链接
             'persistent'    => env('CACHE_PERSISTENT', false),
-            // 默认缓存有效时间
-            'expire'        => env('CACHE_EXPIRE', 0),
-        ],
-        // gaia内置redis缓存实例
-        'rdb' => [
-            // 驱动器
-            'driver'        => \support\cache\extend\Rdb::class,
             // 默认缓存有效时间
             'expire'        => env('CACHE_EXPIRE', 0),
         ]

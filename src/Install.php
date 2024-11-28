@@ -27,6 +27,7 @@ class Install
     protected static $file_relation = [
         'gaia/config.php' => 'config/cache.php',
         'gaia/Rdb.php' => 'support/cache/extend/Rdb.php',
+        'gaia/Sqlite.php' => 'support/cache/extend/Sqlite.php',
         'gaia/CacheService.php' => 'support/cache/CacheService.php',
     ];
 
