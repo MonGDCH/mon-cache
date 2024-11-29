@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace mon\cache\drivers;
 
+use mon\cache\Traits;
 use mon\cache\CacheInterface;
 use mon\cache\exception\CacheException;
 use mon\cache\exception\InvalidArgumentException;
@@ -16,6 +17,8 @@ use mon\cache\exception\InvalidArgumentException;
  */
 class File implements CacheInterface
 {
+    use Traits;
+
     /**
      * 配置信息
      *
@@ -61,9 +64,7 @@ class File implements CacheInterface
      * @throws \Exception
      * @return void
      */
-    public function ping()
-    {
-    }
+    public function ping() {}
 
     /**
      * 获取缓存内容
@@ -92,7 +93,7 @@ class File implements CacheInterface
                 $content = gzuncompress($content);
             }
 
-            $content = unserialize($content);
+            $content = $this->unserialize($content);
             return $content;
         }
 
@@ -135,7 +136,7 @@ class File implements CacheInterface
             $ttl = $this->config['expire'];
         }
         $filename = $this->getCacheKey($key);
-        $data = serialize($value);
+        $data = $this->serialize($value);
         if ($this->config['data_compress'] && function_exists('gzcompress')) {
             //数据压缩
             $data = gzcompress($data, 3);

@@ -6,6 +6,7 @@ namespace support\cache\extend;
 
 use Throwable;
 use mon\thinkORM\Db;
+use mon\cache\Traits;
 use think\db\PDOConnection;
 use mon\cache\CacheInterface;
 use mon\cache\exception\CacheException;
@@ -18,6 +19,8 @@ use mon\cache\exception\CacheException;
  */
 class Sqlite implements CacheInterface
 {
+    use Traits;
+
     /**
      * 配置信息
      *
@@ -81,7 +84,7 @@ class Sqlite implements CacheInterface
     public function getMultiple($keys, $default = null): array
     {
         $now = time();
-        $data = Db::connect('sqlite')->table('mon_cache')->where('key', 'in', $keys)->where("`expire` = 0 OR `expire` >= {$now}")->column('value', 'key');
+        $data = $this->getDb()->table($this->config['table'])->where('key', 'in', $keys)->where("`expire` = 0 OR `expire` >= {$now}")->column('value', 'key');
         foreach ($keys as $key) {
             if (!isset($data[$key])) {
                 $data[$key] = $default;
@@ -167,7 +170,7 @@ class Sqlite implements CacheInterface
      */
     public function clear(): bool
     {
-        return $this->getDb()->table($this->config['table'])->delete() !== false;
+        return $this->getDb()->table($this->config['table'])->where('1 = 1')->delete() !== false;
     }
 
     /**
@@ -246,32 +249,10 @@ SQL;
             // 创建缓存表
             $tables = $this->getDb()->getTables();
             if (!in_array($this->config['table'], $tables)) {
-                Db::connect('sqlite')->execute($sql);
+                $this->getDb()->execute($sql);
             }
         } catch (Throwable $e) {
             throw new CacheException('Init Sqlite Cache Table Error: ' . $e->getMessage(), 0, $e);
         }
-    }
-
-    /**
-     * 序列化值
-     *
-     * @param mixed $value
-     * @return string
-     */
-    protected function serialize($value): string
-    {
-        return serialize($value);
-    }
-
-    /**
-     * 反序列化值
-     *
-     * @param string $value
-     * @return mixed
-     */
-    protected function unserialize(string $value)
-    {
-        return unserialize($value);
     }
 }

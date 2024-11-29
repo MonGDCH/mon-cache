@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace mon\cache\drivers;
 
+use mon\cache\Traits;
 use mon\cache\CacheInterface;
 use mon\cache\exception\CacheException;
 
@@ -15,6 +16,8 @@ use mon\cache\exception\CacheException;
  */
 class Redis implements CacheInterface
 {
+    use Traits;
+
     /**
      * Redis实例
      *
@@ -119,7 +122,7 @@ class Redis implements CacheInterface
             return $default;
         }
 
-        return unserialize($value);
+        return $this->unserialize($value);
     }
 
     /**
@@ -142,7 +145,7 @@ class Redis implements CacheInterface
                     $value = $default;
                 }
             } else {
-                $value = unserialize($cacheData[$i]);
+                $value = $this->unserialize($cacheData[$i]);
             }
             $values[$k] = $value;
             $i++;
@@ -165,7 +168,7 @@ class Redis implements CacheInterface
             $ttl = $this->config['expire'];
         }
 
-        $value = serialize($value);
+        $value = $this->serialize($value);
         if ($ttl) {
             $result = $this->handler()->setex($key, $ttl, $value);
         } else {
@@ -191,7 +194,7 @@ class Redis implements CacheInterface
             // 设置有效期
             $pipe = $this->handler()->multi(\Redis::PIPELINE);
             foreach ($values as $k => $v) {
-                $pipe->setex($k, $ttl, serialize($v));
+                $pipe->setex($k, $ttl, $this->serialize($v));
             }
             $exec = $pipe->exec();
             $result = true;
@@ -204,7 +207,7 @@ class Redis implements CacheInterface
         } else {
             $data = [];
             foreach ($values as $k => $v) {
-                $data[$k] = serialize($v);
+                $data[$k] = $this->serialize($v);
             }
             $result = $this->handler()->mSet($data);
         }
