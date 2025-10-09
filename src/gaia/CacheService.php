@@ -87,7 +87,7 @@ class CacheService
         $this->service = new Cache($this->config);
         $this->keepAliveConfig = $this->config['keep_alive'];
         // 是否开启Ping
-        if ($this->keepAliveConfig['enable']) {
+        if ($this->keepAliveConfig['enable'] && defined('IN_WORKERMAN') && IN_WORKERMAN) {
             $this->keep($this->keepAliveConfig['ping'], $this->keepAliveConfig['reset_max'], $this->keepAliveConfig['event']);
         }
     }

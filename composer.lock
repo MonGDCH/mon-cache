@@ -4,14 +4,14 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "194843eaad2fbef33de5022f20d5ef7d",
+    "content-hash": "64fe4a54b8780d2c4971efa74259e17d",
     "packages": [
         {
             "name": "psr/simple-cache",
             "version": "1.0.1",
             "dist": {
                 "type": "zip",
-                "url": "https://mirrors.tencent.com/repository/composer/psr/simple-cache/1.0.1/psr-simple-cache-1.0.1.zip",
+                "url": "https://mirrors.cloud.tencent.com/repository/composer/psr/simple-cache/1.0.1/psr-simple-cache-1.0.1.zip",
                 "reference": "408d5eafb83c57f6365a3ca330ff23aa4a5fa39b",
                 "shasum": ""
             },
@@ -46,6 +46,9 @@
                 "psr-16",
                 "simple-cache"
             ],
+            "support": {
+                "source": "https://github.com/php-fig/simple-cache/tree/master"
+            },
             "time": "2017-10-23T01:57:42+00:00"
         }
     ],
@@ -56,7 +59,7 @@
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
-        "php": ">=7.0.0"
+        "php": ">=7.0"
     },
     "platform-dev": [],
     "plugin-api-version": "2.2.0"
