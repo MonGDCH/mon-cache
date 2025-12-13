@@ -13,6 +13,11 @@ class MyDriver implements CacheInterface
         var_dump($config);
     }
 
+    public function ping()
+    {
+        return true;
+    }
+
     /**
      * 获取缓存内容
      *

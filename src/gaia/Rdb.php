@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace support\cache\extend;
 
 use mon\cache\drivers\Redis;
-use support\service\RedisService;
+use app\service\RedisService;
 
 /**
  * 扩展的Gaia自带redis缓存库

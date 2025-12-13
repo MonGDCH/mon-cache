@@ -12,6 +12,4 @@ use Exception;
  * @author Mon <985558837@qq.com>
  * @version 1.0.0
  */
-class CacheException extends Exception implements \Psr\SimpleCache\CacheException
-{
-}
+class CacheException extends Exception implements \Psr\SimpleCache\CacheException {}

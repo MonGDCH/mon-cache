@@ -12,6 +12,4 @@ use Exception;
  * @author Mon <985558837@qq.com>
  * @version 1.0.0
  */
-class InvalidArgumentException extends Exception implements \Psr\SimpleCache\InvalidArgumentException
-{
-}
+class InvalidArgumentException extends Exception implements \Psr\SimpleCache\InvalidArgumentException {}
