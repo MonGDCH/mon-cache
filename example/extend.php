@@ -25,7 +25,7 @@ class MyDriver implements CacheInterface
      * @param  mixed  $default  默认值
      * @return mixed
      */
-    public function get(string $key, $default = null)
+    public function get(string $key, mixed $default = null): mixed
     {
         return __CLASS__ . '_' . $key;
     }

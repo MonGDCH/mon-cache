@@ -55,10 +55,10 @@ $config = [
 $cache = new Cache($config);
 
 // 设置
-// $set = $cache->set('ab', 'aaaab');
-// var_dump($set);
-// $set = $cache->set('abc', 'aaaab', 10);
-// var_dump($set);
+$set = $cache->set('ab', 'aaaab');
+var_dump($set);
+$set = $cache->set('abc', 'aaaab', 10);
+var_dump($set);
 
 // 批量设置
 $mSet = $cache->setMultiple(['a' => 1, 'b' => '2', 'c' => -3, 'd' => 4, 'e' => 'abc']);
@@ -69,29 +69,31 @@ $data = $cache->get('ab', 'cd');
 var_dump($data);
 
 // 批量获取
-// $mGet = $cache->getMultiple(['a', 'b', 'c', 'd'], ['d' => 'aaa']);
+$mGet = $cache->getMultiple(['a', 'b', 'c', 'd'], ['d' => 'aaa']);
 // $mGet = $cache->getMultiple(['a', 'b', 'c', 'd'], 'default');
-// var_dump($mGet);
+var_dump($mGet);
 
 // 是否存在
-// $has = $cache->has('abc');
-// var_dump($has);
+$has = $cache->has('abc');
+var_dump($has);
 
 // 删除
 // $del = $cache->delete('b');
 // var_dump($del);
 
 // 批量删除
-// $mDel = $cache->deleteMultiple(['a', 'd', 'ab']);
-// var_dump($mDel);
+$mDel = $cache->deleteMultiple(['a', 'd', 'ab']);
+var_dump($mDel);
+
+$inc = $cache->dec('b', 3);
+var_dump($inc);
+
+$pull = $cache->pull('b');
+var_dump($pull);
+
+
+
 
 // 清空缓存
-// $clear = $cache->clear();
-// var_dump($clear);
-
-// $pull = $cache->pull('b');
-// var_dump($pull);
-
-
-// $inc = $cache->dec('b', 3);
-// var_dump($inc);
+$clear = $cache->clear();
+var_dump($clear);

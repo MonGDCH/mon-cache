@@ -115,7 +115,7 @@ class Redis implements CacheInterface
      * @param  mixed  $default 默认值
      * @return mixed
      */
-    public function get($key, $default = null)
+    public function get(string $key, mixed $default = null): mixed
     {
         $value = $this->handler()->get($key);
         if (is_null($value) || $value === false) {
@@ -159,7 +159,7 @@ class Redis implements CacheInterface
      *
      * @param string  $key    缓存变量名
      * @param mixed   $value   存储数据
-     * @param integer $expire  有效时间 0为永久
+     * @param integer $ttl  有效时间 0为永久
      * @return boolean
      */
     public function set($key, $value, $ttl = null): bool

@@ -205,7 +205,7 @@ class Cache
      * @param integer|null $ttl 有效期
      * @return boolean
      */
-    public function inc(string $key, int $step = 1, int $ttl = null): bool
+    public function inc(string $key, int $step = 1, ?int $ttl = null): bool
     {
         // 先获取值
         $result = $this->get($key);
@@ -225,7 +225,7 @@ class Cache
      * @param integer|null $ttl 有效期
      * @return boolean
      */
-    public function dec(string $key, int $step = 1, int $ttl = null): bool
+    public function dec(string $key, int $step = 1, ?int $ttl = null): bool
     {
         // 先获取值
         $result = $this->get($key);
