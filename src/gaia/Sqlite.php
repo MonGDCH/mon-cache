@@ -63,7 +63,7 @@ class Sqlite implements CacheInterface
      * @param  mixed  $default 默认值
      * @return mixed
      */
-    public function get($key, $default = null)
+    public function get(string $key, mixed $default = null): mixed
     {
         $now = time();
         $value = $this->getDb()->table($this->config['table'])->where('key', $key)->where("`expire` = 0 OR `expire` >= {$now}")->value('value');
@@ -222,6 +222,8 @@ class Sqlite implements CacheInterface
     public function getDb(): PDOConnection
     {
         if (!$this->db) {
+            // SQLite 不会自动创建父级目录，连接前先确保目录存在
+            $this->ensureDatabaseDir();
             $this->db = Db::configConnect([
                 // 数据库类型
                 'type'      => 'sqlite',
@@ -236,6 +238,33 @@ class Sqlite implements CacheInterface
             ]);
         }
         return $this->db;
+    }
+
+    /**
+     * 确保缓存数据库文件所在目录存在
+     *
+     * SQLite 允许数据库文件不存在（连接时自动创建），但父级目录必须存在，
+     * 否则会抛出 SQLSTATE[HY000] [14] unable to open database file。
+     *
+     * @throws CacheException
+     * @return void
+     */
+    protected function ensureDatabaseDir()
+    {
+        $database = (string)$this->config['database'];
+        // 未配置数据库(临时库)与内存库(:memory:)无需目录
+        if ($database === '' || strpos($database, ':memory:') === 0 || strpos($database, 'file:') === 0) {
+            return;
+        }
+
+        $dir = dirname($database);
+        if ($dir === '' || $dir === '.' || is_dir($dir)) {
+            return;
+        }
+
+        if (!@mkdir($dir, 0755, true) && !is_dir($dir)) {
+            throw new CacheException('Init Sqlite Cache Dir Error: Cannot create directory ' . $dir . ', please check the permission of `database` config');
+        }
     }
 
     /**
@@ -260,7 +289,7 @@ SQL;
                 $this->getDb()->execute($sql);
             }
         } catch (Throwable $e) {
-            throw new CacheException('Init Sqlite Cache Table Error: ' . $e->getMessage(), 0, $e);
+            throw new CacheException('Init Sqlite Cache Table Error: ' . $e->getMessage() . ' [database: ' . $this->config['database'] . ']', 0, $e);
         }
     }
 }
