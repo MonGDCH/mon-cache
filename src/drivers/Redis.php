@@ -134,6 +134,10 @@ class Redis implements CacheInterface
      */
     public function getMultiple($keys, $default = null): array
     {
+        // 空数组直接返回，避免mGet空参数报错
+        if (empty($keys)) {
+            return [];
+        }
         $values = [];
         $cacheData = $this->handler()->mGet($keys);
         $i = 0;
@@ -235,6 +239,11 @@ class Redis implements CacheInterface
      */
     public function deleteMultiple($keys): bool
     {
+        // 空数组直接返回，避免del空参数报错
+        if (empty($keys)) {
+            return true;
+        }
+
         return call_user_func_array([$this->handler(), 'del'], $keys) !== false;
     }
 
@@ -247,6 +256,27 @@ class Redis implements CacheInterface
     public function has($key): bool
     {
         return $this->handler()->exists($key) ? true : false;
+    }
+
+    /**
+     * 获取缓存剩余有效期
+     *
+     * @param  string $key 缓存变量名
+     * @return integer|null 剩余秒数，0为永久，key不存在时返回null
+     */
+    public function getTtl(string $key): ?int
+    {
+        $ttl = $this->handler()->ttl($key);
+        if (-2 === $ttl) {
+            // key不存在
+            return null;
+        }
+        if (-1 === $ttl) {
+            // 永久有效
+            return 0;
+        }
+
+        return $ttl >= 0 ? $ttl : null;
     }
 
     /**

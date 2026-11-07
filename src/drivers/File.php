@@ -80,24 +80,26 @@ class File implements CacheInterface
             return $default;
         }
         $content = file_get_contents($filename);
-        if (false !== $content) {
-            $expire = (int) substr($content, 8, 12);
-            if (0 != $expire && time() > filemtime($filename) + $expire) {
-                //缓存过期删除缓存文件
-                unlink($filename);
+        if (false === $content) {
+            return $default;
+        }
+        // 前12位为有效期
+        $expire = (int) substr($content, 0, 12);
+        if (0 != $expire && time() > filemtime($filename) + $expire) {
+            //缓存过期删除缓存文件
+            unlink($filename);
+            return $default;
+        }
+        $content = substr($content, 12);
+        if ($this->config['data_compress'] && function_exists('gzcompress')) {
+            //数据解压
+            $content = gzuncompress($content);
+            if (false === $content) {
                 return $default;
             }
-            $content = substr($content, 20, -3);
-            if ($this->config['data_compress'] && function_exists('gzcompress')) {
-                //启用数据压缩
-                $content = gzuncompress($content);
-            }
-
-            $content = $this->unserialize($content);
-            return $content;
         }
 
-        return $default;
+        return $this->unserialize($content);
     }
 
     /**
@@ -141,12 +143,16 @@ class File implements CacheInterface
             //数据压缩
             $data = gzcompress($data, 3);
         }
-        $data   = "<?php\n//" . sprintf('%012d', $ttl) . $data . "\n?>";
-        $result = file_put_contents($filename, $data);
-        if ($result) {
+        // 前12位为有效期，数据不再包裹在PHP标签内，避免缓存文件被当作脚本执行
+        $data = sprintf('%012d', (int) $ttl) . $data;
+        // 先写临时文件再原子重命名，加锁避免并发下读到写了一半的数据
+        $temp = $filename . '.' . uniqid('', true) . '.tmp';
+        $result = file_put_contents($temp, $data, LOCK_EX);
+        if (false !== $result && rename($temp, $filename)) {
             clearstatcache();
             return true;
         }
+        is_file($temp) && @unlink($temp);
 
         return false;
     }
@@ -178,7 +184,43 @@ class File implements CacheInterface
      */
     public function has($key): bool
     {
-        return $this->get($key) ? true : false;
+        $filename = $this->getCacheKey($key);
+        if (!is_file($filename)) {
+            return false;
+        }
+        $content = file_get_contents($filename);
+        if (false === $content) {
+            return false;
+        }
+        // 只判断存在性与有效期，避免值为假值（0、''、false等）时误判为不存在
+        $expire = (int) substr($content, 0, 12);
+
+        return 0 == $expire || time() <= filemtime($filename) + $expire;
+    }
+
+    /**
+     * 获取缓存剩余有效期
+     *
+     * @param  string $key 缓存变量名
+     * @return integer|null 剩余秒数，0为永久，key不存在时返回null
+     */
+    public function getTtl(string $key): ?int
+    {
+        $filename = $this->getCacheKey($key);
+        if (!is_file($filename)) {
+            return null;
+        }
+        $content = file_get_contents($filename);
+        if (false === $content) {
+            return null;
+        }
+        $expire = (int) substr($content, 0, 12);
+        if (0 == $expire) {
+            return 0;
+        }
+        $remaining = filemtime($filename) + $expire - time();
+
+        return $remaining > 0 ? $remaining : null;
     }
 
     /**
@@ -225,8 +267,8 @@ class File implements CacheInterface
         $files = (array) glob($this->config['path'] . ($this->config['prefix'] ? $this->config['prefix'] . DIRECTORY_SEPARATOR : '') . '*');
         foreach ($files as $path) {
             if (is_dir($path)) {
-                array_map('unlink', glob($path . '/*.php'));
-                rmdir($path);
+                array_map('unlink', (array) glob($path . '/*.cache'));
+                @rmdir($path);
             } else {
                 unlink($path);
             }
@@ -250,7 +292,7 @@ class File implements CacheInterface
         if ($this->config['prefix']) {
             $name = $this->config['prefix'] . DIRECTORY_SEPARATOR . $name;
         }
-        $filename = $this->config['path'] . $name . '.php';
+        $filename = $this->config['path'] . $name . '.cache';
         $dir = dirname($filename);
         if (!is_dir($dir)) {
             mkdir($dir, 0755, true);

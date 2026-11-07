@@ -67,7 +67,8 @@ class Sqlite implements CacheInterface
     {
         $now = time();
         $value = $this->getDb()->table($this->config['table'])->where('key', $key)->where("`expire` = 0 OR `expire` >= {$now}")->value('value');
-        if (!$value) {
+        // 只判断未查询到，避免缓存了空字符串等假值时误判为不存在
+        if (is_null($value) || $value === false) {
             return $default;
         }
 
@@ -85,14 +86,19 @@ class Sqlite implements CacheInterface
     {
         $now = time();
         $data = $this->getDb()->table($this->config['table'])->where('key', 'in', $keys)->where("`expire` = 0 OR `expire` >= {$now}")->column('value', 'key');
+        $values = [];
         foreach ($keys as $key) {
-            if (!isset($data[$key])) {
-                $data[$key] = $default;
+            if (isset($data[$key])) {
+                $values[$key] = $this->unserialize($data[$key]);
+            } elseif (is_array($default)) {
+                // 与File/Redis驱动对齐，支持数组按key映射默认值
+                $values[$key] = isset($default[$key]) ? $default[$key] : null;
             } else {
-                $data[$key] = $this->unserialize($data[$key]);
+                $values[$key] = $default;
             }
         }
-        return $data ?: [];
+
+        return $values;
     }
 
     /**
@@ -192,8 +198,10 @@ class Sqlite implements CacheInterface
     public function has($key): bool
     {
         $now = time();
-        $value = $this->getDb()->table($this->config['table'])->where('key', $key)->where("`expire` = 0 OR `expire` >= {$now}")->value('value');
-        return $value ? true : false;
+        // 使用COUNT判断存在性，避免值为假值（0、''、false等）时误判为不存在
+        $count = $this->getDb()->table($this->config['table'])->where('key', $key)->where("`expire` = 0 OR `expire` >= {$now}")->count('key');
+
+        return $count > 0;
     }
 
     /**

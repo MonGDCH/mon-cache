@@ -15,13 +15,14 @@ use mon\util\Instance;
  * 缓存服务
  * 
  * @method mixed get(string $key, mixed $default = null)  获取缓存
- * @method array getMultiple(array $keys, $default = nulll)  批量获取缓存
+ * @method array getMultiple(array $keys, $default = null)  批量获取缓存
  * @method boolean set(string $key, mixed $value, integer $ttl = null) 设置缓存
  * @method boolean setMultiple(array $values, int $ttl = null)  批量设置缓存
  * @method boolean has(string $key) 是否存在缓存
  * @method boolean delete(string $key) 删除缓存
  * @method boolean deleteMultiple(array $keys) 批量删除缓存
  * @method boolean clear() 清空缓存
+ * @method integer|null getTtl(string $key) 获取剩余有效期，0为永久，key不存在返回null
  * @method boolean inc(string $key, int $step = 1, int $ttl = null) 自增
  * @method boolean dec(string $key, int $step = 1, int $ttl = null) 自减
  * @method mixed pull(string $key, $default = null) 读取缓存并删除
@@ -120,8 +121,8 @@ class CacheService
             } catch (Throwable $e) {
                 $this->err_count++;
                 Logger::instance()->channel()->error('Cache Service Exception. message => ' . $e->getMessage() . ' code => ' . $e->getCode());
-                // 上报缓存错误事件
-                Event::instance()->trigger($evnet, ['err_count' => $max, 'config' => $this->config]);
+                // 上报缓存错误事件，上报实际累计错误次数
+                Event::instance()->trigger($evnet, ['err_count' => $this->err_count, 'config' => $this->config]);
                 if ($max >= $this->err_count) {
                     // 一定次数内，自动重启服务
                     Logger::instance()->channel()->info('Cache Service restart');
@@ -141,7 +142,12 @@ class CacheService
      */
     public function unKeep()
     {
+        // 未启动保活时直接返回，避免对null调用Timer::del
+        if (empty($this->ping_timer)) {
+            return;
+        }
         \Workerman\Timer::del($this->ping_timer);
+        $this->ping_timer = null;
         Logger::instance()->channel()->info('Cache Service keep stop.');
     }
 

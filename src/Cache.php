@@ -14,13 +14,14 @@ use mon\cache\exception\InvalidArgumentException;
  *
  * @method mixed ping() Ping
  * @method mixed get(string $key, mixed $default = null)  获取缓存
- * @method array getMultiple(array $keys, $default = nulll)  批量获取缓存
+ * @method array getMultiple(array $keys, $default = null)  批量获取缓存
  * @method boolean set(string $key, mixed $value, integer $ttl = null) 设置缓存
  * @method boolean setMultiple(array $values, int $ttl = null)  批量设置缓存
  * @method boolean has(string $key) 是否存在缓存
  * @method boolean delete(string $key) 删除缓存
  * @method boolean deleteMultiple(array $keys) 批量删除缓存
  * @method boolean clear() 清空缓存
+ * @method integer|null getTtl(string $key) 获取剩余有效期，0为永久，key不存在返回null
  * 
  * @author Mon <985558837@qq.com>
  * @version 1.0.0
@@ -202,19 +203,12 @@ class Cache
      *
      * @param string $key   键名
      * @param integer $step 步长
-     * @param integer|null $ttl 有效期
+     * @param integer|null $ttl 有效期，为null且key已存在时保留原有效期
      * @return boolean
      */
     public function inc(string $key, int $step = 1, ?int $ttl = null): bool
     {
-        // 先获取值
-        $result = $this->get($key);
-        if (!is_numeric($result)) {
-            return false;
-        }
-        // 自增
-        $value = $result + $step;
-        return $this->set($key, $value, $ttl);
+        return $this->calculate($key, $step, $ttl);
     }
 
     /**
@@ -222,19 +216,35 @@ class Cache
      *
      * @param string $key   键名
      * @param integer $step 步长
-     * @param integer|null $ttl 有效期
+     * @param integer|null $ttl 有效期，为null且key已存在时保留原有效期
      * @return boolean
      */
     public function dec(string $key, int $step = 1, ?int $ttl = null): bool
     {
+        return $this->calculate($key, -$step, $ttl);
+    }
+
+    /**
+     * 计算缓存值
+     *
+     * @param string $key   键名
+     * @param integer $step 步长，可为负
+     * @param integer|null $ttl 有效期
+     * @return boolean
+     */
+    protected function calculate(string $key, int $step, ?int $ttl): bool
+    {
+        $driver = $this->store();
         // 先获取值
-        $result = $this->get($key);
+        $result = $driver->get($key);
         if (!is_numeric($result)) {
             return false;
         }
-        // 自增
-        $value = $result - $step;
-        return $this->set($key, $value, $ttl);
+        // 未指定有效期且驱动支持时，保留原key的剩余有效期，避免重置为默认值
+        if (is_null($ttl) && method_exists($driver, 'getTtl')) {
+            $ttl = $driver->getTtl($key);
+        }
+        return $driver->set($key, $result + $step, $ttl);
     }
 
     /**

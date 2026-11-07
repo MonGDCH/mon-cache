@@ -31,6 +31,7 @@ trait Traits
      */
     protected function unserialize(string $value)
     {
-        return unserialize($value);
+        // 禁止反序列化为对象，避免存储介质被篡改时的PHP对象注入风险
+        return unserialize($value, ['allowed_classes' => false]);
     }
 }
