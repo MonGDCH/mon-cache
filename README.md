@@ -76,7 +76,9 @@ $cache = new Cache($config);
 
 ```php
 // 设置缓存，$ttl为null时使用配置的默认expire，0为永久
+// $ttl 支持 int、DateInterval、null；传入负数或非法类型会抛出 InvalidArgumentException
 $cache->set('key', 'value', 60);
+$cache->set('key', 'value', new DateInterval('PT1H'));
 
 // 获取缓存，不存在或已过期时返回默认值
 $data = $cache->get('key', 'default');
@@ -115,11 +117,16 @@ $ttl = $cache->store()->getTtl('cnt');
 
 > **注意**：`inc` / `dec` / `pull` 为「读取-写回」模式实现，非原子操作，高并发计数场景建议使用 Redis 原生命令（可通过 `handler()` 获取驱动实例）。
 
+> **说明**：所有驱动对读到损坏数据（反序列化失败、解压失败）的处理一致——删除该缓存项并按「未命中」返回默认值，不会把 `false` 之类的脏值返回给业务。
+
 ### 驱动管理
 
 ```php
-// 获取指定驱动实例（第二个参数可传入临时配置，需配合$reset使用）
+// 获取指定驱动实例
 $fileDriver  = $cache->store('file');
+
+// 第二个参数可传入临时配置：与当前驱动实例配置不一致时会自动重建驱动（也可显式传 $reset = true 强制重建）
+$tmpDriver   = $cache->store('file', ['driver' => File::class, 'path' => '/tmp/cache']);
 $redisDriver = $cache->store('redis');
 
 // 获取Redis原生对象
@@ -149,6 +156,13 @@ $cache->setDefaultDriver('my_driver');
 
 存储格式为：`12位有效期 + 序列化数据`，文件后缀为 `.cache`，不再使用PHP文件格式。写入采用「临时文件 + 排它锁 + 原子重命名」，多进程并发读写安全。
 
+补充说明：
+
+- 读取操作（`get`/`has`/`getTtl`/`delete`）每次都会清理该文件的 stat 缓存，**常驻进程（Workerman/Swoole）中其他进程改写缓存后能立刻感知**，不会因为 PHP 进程级 stat 缓存而误判过期或误删新数据。
+- `has()`/`getTtl()` 只读取文件头 12 字节判断有效期，不读取完整内容。
+- 过期文件采用「读取时删除」的懒清理策略，写入多读取少的 key 会残留占用磁盘，可在定时任务中调用 `$driver->gc()` 主动回收（返回清理数量）；`clear()` 会一并清理旧版 `.php` 遗留文件与写入中断残留的 `.tmp` 文件。
+- 支持 `gc()` 的驱动为 File；Redis/Sqlite 依靠自身的 TTL/过期字段机制。
+
 ### Redis 驱动
 
 | 配置项 | 默认值 | 说明 |
@@ -161,6 +175,8 @@ $cache->setDefaultDriver('my_driver');
 | prefix | `''` | 自定义键前缀（通过 `OPT_PREFIX` 实现） |
 | database | `1` | redis数据库，0时不执行select |
 | timeout | `2` | 链接及读取超时时间，单位秒 |
+
+> **`clear()` 行为**：以连接上实际生效的 `OPT_PREFIX` 为准——存在前缀时通过 `SCAN + DEL` 只删除该前缀下的缓存键（复用外部连接的 `rdb` 驱动同样按外部连接的前缀处理）；**未配置前缀时等价于 `flushDB()`，会清空当前 database 的所有键**（包括其他业务写入的数据）。因此与其他业务共用同一个 database 时，请务必配置独立的 `prefix`。
 | persistent | `false` | 是否持久链接 |
 
 ## 自定义扩展驱动
@@ -185,7 +201,7 @@ class MyDriver implements CacheInterface
 
     public function set(string $key, mixed $value, mixed $ttl = null): bool
     {
-        // 写入缓存
+        // 写入缓存，$ttl 支持 null(使用默认配置)、int、DateInterval
     }
 
     public function has(string $key): bool
@@ -203,9 +219,11 @@ class MyDriver implements CacheInterface
         // 清空缓存
     }
 
-    public function getMultiple(array $keys, $default = null): array {}
-    public function setMultiple(array $values, $ttl = null): bool {}
-    public function deleteMultiple(array $keys): bool {}
+    // 注意：PSR-16 v3 中 $keys/$values 为 iterable、$ttl 为 DateInterval|int|null，
+    // 实现时不要用 array 收窄参数类型，否则会触发 Fatal error（参数类型不兼容）
+    public function getMultiple($keys, $default = null): array {}
+    public function setMultiple($values, $ttl = null): bool {}
+    public function deleteMultiple($keys): bool {}
 }
 ```
 
@@ -239,6 +257,13 @@ class MyDriver implements CacheInterface
 ],
 ```
 
+保活行为说明：
+
+- 未提供 `keep_alive` 配置时使用内置默认值（`enable=true`、`ping=55`、`reset_max=3`），不会因为配置缺失导致服务初始化失败。
+- `ping = 0` 时不注册定时器。
+- 每次 Ping 会遍历**所有已建立连接的驱动**（不只是默认驱动），任一驱动异常即触发 `cache_error` 事件。
+- `err_count` 超过 `reset_max` 后停止保活；成功 Ping 一次会清零计数。重复调用 `keep()` 会先移除旧定时器，重新从 0 计数。
+
 ## 升级说明（安全修复版本）
 
 近期版本对 File 驱动做了安全加固，升级前请确认以下事项：
@@ -247,6 +272,19 @@ class MyDriver implements CacheInterface
 2. **反序列化限制**：`unserialize` 默认禁止还原对象（`allowed_classes => false`），如业务存在「缓存对象后再取出使用」的场景需自行调整
 3. **`has()` 行为修正**：缓存值为 `0`、`''`、`false` 等假值时 `has()` 现在正确返回 `true`（旧版本会误判为不存在）
 4. **`inc`/`dec` 行为修正**：未指定 `$ttl` 时不再把原key重置为永久/默认有效期，而是保留剩余有效期
+5. **TTL 校验**：`$ttl` 传入负数或非法类型时抛出 `InvalidArgumentException`（遵循 PSR-16），同时新增 `DateInterval` 支持。若历史代码依赖负数 TTL 表达「立即过期」，请改为直接删除 key
+6. **损坏数据不再返回脏值**：反序列化/解压失败时删除该缓存项并返回默认值（旧版会返回 `false`）
+7. **配置改为递归合并**：`stores` 下各驱动的配置支持只覆盖部分键（如只传 `path`），不再整体替换导致 `driver` 等默认配置丢失
+8. **`store($type, $config)` 语义**：传入的临时配置与当前驱动实例不一致时会自动重建驱动，不再静默忽略（相同配置仍复用实例，无额外连接开销）
+9. **`clear()` 范围收紧**：Redis 配置了 `prefix` 时只删除该前缀下的键，不再无条件 `flushDB`
+10. **常驻进程保活修复**：配置缺失时使用内置默认值不再报错；`ping = 0` 不启动定时器；重复调用 `keep()` 不会叠加定时器；保活会 Ping 所有已建立连接的驱动
+
+### Workerman 环境注意事项
+
+- **服务实例化时机**：`CacheService` 的保活定时器在实例化时注册，请在 `onWorkerStart`（子进程）中首次使用，避免在 master 进程/启动引导阶段实例化导致定时器注册在错误的进程。
+- **`rdb` 驱动（复用 Gaia 内置 Redis 连接）**：其连接由外部服务持有，保活重启只会重建 `Cache` 对象，**不会重建底层连接**。若使用该驱动，需监听 `cache_error` 事件自行重建底层连接。
+- **`inc` / `dec` 非原子**：多进程并发计数请使用 Redis 原生命令。
+- **Sqlite 驱动**：建表使用 `CREATE TABLE IF NOT EXISTS`，多进程并发启动安全；过期数据在实例化时清理，并在运行期间按 300 秒间隔自动清理。
 
 ## License
 

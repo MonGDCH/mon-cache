@@ -53,7 +53,48 @@ class Sqlite implements CacheInterface
     {
         $this->config = array_merge($this->config, $config);
         $this->init();
-        $this->optimize();
+        try {
+            $this->optimize();
+        } catch (Throwable $e) {
+            // 多进程并发启动时可能短暂锁库，过期数据清理失败不影响服务可用性
+        }
+        $this->last_optimize = time();
+    }
+
+    /**
+     * 上次清理过期数据的时间
+     *
+     * @var integer
+     */
+    protected $last_optimize = 0;
+
+    /**
+     * 过期数据清理间隔，单位秒
+     *
+     * @var integer
+     */
+    protected $optimize_interval = 300;
+
+    /**
+     * 按间隔清理过期数据
+     *
+     * 常驻进程长期运行不会重新实例化驱动，需要运行期间周期性清理过期数据，
+     * 否则过期数据会持续堆积导致表体积和维护成本上涨。
+     *
+     * @return void
+     */
+    protected function maybeOptimize()
+    {
+        $now = time();
+        if ($now - $this->last_optimize < $this->optimize_interval) {
+            return;
+        }
+        $this->last_optimize = $now;
+        try {
+            $this->optimize();
+        } catch (Throwable $e) {
+            // 清理失败不影响正常读写
+        }
     }
 
     /**
@@ -71,8 +112,14 @@ class Sqlite implements CacheInterface
         if (is_null($value) || $value === false) {
             return $default;
         }
+        $result = $this->unserialize($value);
+        if ($this->isUnserializeFailed($result, $value)) {
+            // 数据损坏，删除后按未命中处理
+            $this->getDb()->table($this->config['table'])->where('key', $key)->delete();
+            return $default;
+        }
 
-        return $this->unserialize($value);
+        return $result;
     }
 
     /**
@@ -84,12 +131,18 @@ class Sqlite implements CacheInterface
      */
     public function getMultiple($keys, $default = null): array
     {
+        // PSR-16 允许传入 iterable，统一转为数组，避免 Generator 被重复迭代
+        if (!is_array($keys)) {
+            $keys = iterator_to_array($keys, false);
+        }
         $now = time();
         $data = $this->getDb()->table($this->config['table'])->where('key', 'in', $keys)->where("`expire` = 0 OR `expire` >= {$now}")->column('value', 'key');
         $values = [];
         foreach ($keys as $key) {
             if (isset($data[$key])) {
-                $values[$key] = $this->unserialize($data[$key]);
+                $value = $this->unserialize($data[$key]);
+                // 数据损坏时按未命中处理
+                $values[$key] = $this->isUnserializeFailed($value, $data[$key]) ? null : $value;
             } elseif (is_array($default)) {
                 // 与File/Redis驱动对齐，支持数组按key映射默认值
                 $values[$key] = isset($default[$key]) ? $default[$key] : null;
@@ -111,8 +164,10 @@ class Sqlite implements CacheInterface
      */
     public function set($key, $value, $ttl = null): bool
     {
+        $this->maybeOptimize();
         $now = time();
-        $ttl = is_null($ttl) ? $this->config['expire'] : $ttl;
+        $ttl = $this->ttlToSeconds($ttl);
+        $ttl = is_null($ttl) ? (int) $this->config['expire'] : $ttl;
         $expire = $ttl > 0 ? $now + $ttl : 0;
         $save = $this->getDb()->table($this->config['table'])->replace(true)->insert([
             'key'    => $key,
@@ -132,8 +187,10 @@ class Sqlite implements CacheInterface
      */
     public function setMultiple($values, $ttl = null): bool
     {
+        $this->maybeOptimize();
         $now = time();
-        $ttl = is_null($ttl) ? $this->config['expire'] : $ttl;
+        $ttl = $this->ttlToSeconds($ttl);
+        $ttl = is_null($ttl) ? (int) $this->config['expire'] : $ttl;
         $expire = $ttl > 0 ? $now + $ttl : 0;
         $saveData = [];
         foreach ($values as $key => $value) {
@@ -166,6 +223,14 @@ class Sqlite implements CacheInterface
      */
     public function deleteMultiple($keys): bool
     {
+        // PSR-16 允许传入 iterable，统一转为数组
+        if (!is_array($keys)) {
+            $keys = iterator_to_array($keys, false);
+        }
+        if (empty($keys)) {
+            return true;
+        }
+
         return $this->getDb()->table($this->config['table'])->where('key', 'in', $keys)->delete() !== false;
     }
 
@@ -275,7 +340,7 @@ class Sqlite implements CacheInterface
     protected function init()
     {
         $sql = <<<SQL
-CREATE TABLE "main"."{$this->config['table']}" (
+CREATE TABLE IF NOT EXISTS "main"."{$this->config['table']}" (
     "key" TEXT NOT NULL,
     "value" TEXT NOT NULL DEFAULT '',
     "expire" integer NOT NULL DEFAULT 0,
@@ -283,12 +348,13 @@ CREATE TABLE "main"."{$this->config['table']}" (
 );
 SQL;
         try {
-            // 创建缓存表
-            $tables = $this->getDb()->getTables();
-            if (!in_array($this->config['table'], $tables)) {
-                $this->getDb()->execute($sql);
-            }
+            // 创建缓存表，使用 IF NOT EXISTS 避免多进程（Workerman 子进程并发启动）建表的竞态
+            $this->getDb()->execute($sql);
         } catch (Throwable $e) {
+            // 极端并发下仍可能因竞态命中已存在错误，视为初始化成功
+            if (stripos($e->getMessage(), 'already exists') !== false) {
+                return;
+            }
             throw new CacheException('Init Sqlite Cache Table Error: ' . $e->getMessage() . ' [database: ' . $this->config['database'] . ']', 0, $e);
         }
     }

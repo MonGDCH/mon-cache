@@ -121,8 +121,14 @@ class Redis implements CacheInterface
         if (is_null($value) || $value === false) {
             return $default;
         }
+        $result = $this->unserialize($value);
+        if ($this->isUnserializeFailed($result, $value)) {
+            // 数据损坏，删除后按未命中处理
+            $this->handler()->del($key);
+            return $default;
+        }
 
-        return $this->unserialize($value);
+        return $result;
     }
 
     /**
@@ -134,6 +140,10 @@ class Redis implements CacheInterface
      */
     public function getMultiple($keys, $default = null): array
     {
+        // PSR-16 允许传入 iterable，统一转为数组，避免 Generator 被重复迭代
+        if (!is_array($keys)) {
+            $keys = iterator_to_array($keys, false);
+        }
         // 空数组直接返回，避免mGet空参数报错
         if (empty($keys)) {
             return [];
@@ -150,6 +160,10 @@ class Redis implements CacheInterface
                 }
             } else {
                 $value = $this->unserialize($cacheData[$i]);
+                if ($this->isUnserializeFailed($value, $cacheData[$i])) {
+                    // 数据损坏，按未命中处理
+                    $value = is_array($default) ? (isset($default[$k]) ? $default[$k] : null) : $default;
+                }
             }
             $values[$k] = $value;
             $i++;
@@ -168,8 +182,9 @@ class Redis implements CacheInterface
      */
     public function set($key, $value, $ttl = null): bool
     {
+        $ttl = $this->ttlToSeconds($ttl);
         if (is_null($ttl)) {
-            $ttl = $this->config['expire'];
+            $ttl = (int) $this->config['expire'];
         }
 
         $value = $this->serialize($value);
@@ -191,8 +206,9 @@ class Redis implements CacheInterface
      */
     public function setMultiple($values, $ttl = null): bool
     {
+        $ttl = $this->ttlToSeconds($ttl);
         if (is_null($ttl)) {
-            $ttl = $this->config['expire'];
+            $ttl = (int) $this->config['expire'];
         }
         if ($ttl) {
             // 设置有效期
@@ -201,6 +217,10 @@ class Redis implements CacheInterface
                 $pipe->setex($k, $ttl, $this->serialize($v));
             }
             $exec = $pipe->exec();
+            // pipeline 执行失败时返回 false，不能直接遍历
+            if (!is_array($exec)) {
+                return false;
+            }
             $result = true;
             foreach ($exec as $r) {
                 if ($r !== true) {
@@ -239,12 +259,16 @@ class Redis implements CacheInterface
      */
     public function deleteMultiple($keys): bool
     {
+        // PSR-16 允许传入 iterable，统一转为数组
+        if (!is_array($keys)) {
+            $keys = iterator_to_array($keys, false);
+        }
         // 空数组直接返回，避免del空参数报错
         if (empty($keys)) {
             return true;
         }
 
-        return call_user_func_array([$this->handler(), 'del'], $keys) !== false;
+        return $this->handler()->del($keys) !== false;
     }
 
     /**
@@ -282,10 +306,43 @@ class Redis implements CacheInterface
     /**
      * 清除缓存
      *
+     * 连接上生效了键前缀（OPT_PREFIX）时只清理该前缀下的缓存键；
+     * 未配置前缀时保持 flushDB 语义（清空当前库），与大范围清理前请先确认前缀配置。
+     *
      * @return boolean
      */
     public function clear(): bool
     {
-        return $this->handler->flushDB();
+        $handler = $this->handler();
+        // 以连接上实际生效的前缀为准（复用外部连接的驱动，如 Gaia 的 Rdb，配置中可能没有该前缀）
+        $prefix = (string) $handler->getOption(\Redis::OPT_PREFIX);
+        // 未配置前缀，只能清空当前数据库
+        if ($prefix === '') {
+            return $handler->flushDB();
+        }
+
+        // 配置了前缀，按前缀扫描删除，避免 flushDB 误删同库其他业务数据
+        // SCAN 的 pattern 不受 OPT_PREFIX 影响，且 DEL 会自动附加前缀，先临时关闭前缀以保持一致
+        $handler->setOption(\Redis::OPT_PREFIX, '');
+        try {
+            $iterator = null;
+            while (true) {
+                $keys = $handler->scan($iterator, $prefix . '*', 1000);
+                if (false === $keys) {
+                    break;
+                }
+                if (!empty($keys)) {
+                    $handler->del($keys);
+                }
+                // 迭代结束
+                if (0 === (int) $iterator || is_null($iterator)) {
+                    break;
+                }
+            }
+        } finally {
+            $handler->setOption(\Redis::OPT_PREFIX, $prefix);
+        }
+
+        return true;
     }
 }

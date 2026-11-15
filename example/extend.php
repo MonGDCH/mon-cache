@@ -38,7 +38,7 @@ class MyDriver implements CacheInterface
      * @param integer $ttl      有效时间，0为永久
      * @return boolean
      */
-    public function set(string $key, $value, int $ttl = null): bool
+    public function set(string $key, $value, DateInterval|int|null $ttl = null): bool
     {
         return true;
     }
@@ -75,17 +75,17 @@ class MyDriver implements CacheInterface
         return true;
     }
 
-    public function getMultiple(array $keys, $default = null): array
+    public function getMultiple($keys, $default = null): array
     {
         return [];
     }
 
-    public function setMultiple(array $values, ?int $ttl = null): bool
+    public function setMultiple($values, $ttl = null): bool
     {
         return true;
     }
 
-    public function deleteMultiple(array $keys): bool
+    public function deleteMultiple($keys): bool
     {
         return true;
     }

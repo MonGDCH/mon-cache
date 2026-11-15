@@ -85,6 +85,13 @@ class Cache
     protected $driver = [];
 
     /**
+     * 驱动实例的构造配置，用于判断临时配置是否需要重建驱动
+     *
+     * @var array
+     */
+    protected $driver_config = [];
+
+    /**
      * 后缀方法
      *
      * @param array $config
@@ -112,8 +119,29 @@ class Cache
      */
     public function setConfig(array $config): Cache
     {
-        $this->config = array_merge($this->config, $config);
+        // 递归合并，避免只覆盖部分配置项（如仅传 path）时丢失同级的 driver、expire 等默认配置
+        $this->config = $this->mergeConfig($this->config, $config);
         return $this;
+    }
+
+    /**
+     * 递归合并配置信息
+     *
+     * @param array $base     默认配置
+     * @param array $override 自定义配置
+     * @return array
+     */
+    protected function mergeConfig(array $base, array $override): array
+    {
+        foreach ($override as $key => $value) {
+            if (is_array($value) && isset($base[$key]) && is_array($base[$key])) {
+                $base[$key] = $this->mergeConfig($base[$key], $value);
+            } else {
+                $base[$key] = $value;
+            }
+        }
+
+        return $base;
     }
 
     /**
@@ -130,6 +158,9 @@ class Cache
         }
 
         $this->config['stores'][$name] = $config;
+        // 已实例化的同名驱动信息失效，下次获取时按新配置重建
+        unset($this->driver[$name], $this->driver_config[$name]);
+
         return $this;
     }
 
@@ -161,6 +192,10 @@ class Cache
     public function store(string $type = '', array $config = [], bool $reset = false): CacheInterface
     {
         $type = $type ?: $this->config['default'];
+        // 传入临时配置时按临时配置生效，与当前实例配置不一致则重建，避免配置被静默忽略
+        if (!$reset && !empty($config) && isset($this->driver[$type]) && $this->driver_config[$type] !== $config) {
+            $reset = true;
+        }
         // 加载驱动
         if (!isset($this->driver[$type]) || $reset) {
             // 获取驱动配置
@@ -176,9 +211,22 @@ class Cache
             }
             $driver = $config['driver'];
             $this->driver[$type] = new $driver($config);
+            $this->driver_config[$type] = $config;
         }
 
         return $this->driver[$type];
+    }
+
+    /**
+     * 获取已实例化的缓存驱动
+     *
+     * 常驻进程保活时需要遍历所有已经建立的连接，而不是只处理默认驱动。
+     *
+     * @return CacheInterface[]
+     */
+    public function getDrivers(): array
+    {
+        return $this->driver;
     }
 
     /**
@@ -192,8 +240,8 @@ class Cache
     {
         // 先获取值
         $result = $this->get($key, $default);
-        // 存在key，则删除
-        $this->has($key) && $this->delete($key);
+        // 删除key，key不存在时删除操作本身就是幂等的，无需先判断存在性
+        $this->delete($key);
 
         return $result;
     }
