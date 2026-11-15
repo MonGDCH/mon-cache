@@ -61,8 +61,10 @@ class File implements CacheInterface
             $this->config['path'] .= DIRECTORY_SEPARATOR;
         }
 
-        // 创建缓存目录
-        is_dir($this->config['path']) || mkdir($this->config['path'], 0755, true);
+        // 创建缓存目录，失败时直接抛出异常，避免后续写入静默失败
+        if (!is_dir($this->config['path']) && !@mkdir($this->config['path'], 0755, true) && !is_dir($this->config['path'])) {
+            throw new CacheException('Create cache path faild: ' . $this->config['path']);
+        }
     }
 
     /**
@@ -94,7 +96,9 @@ class File implements CacheInterface
         }
         // 前12位为有效期
         $expire = (int) substr($content, 0, 12);
-        if (0 != $expire && time() > filemtime($filename) + $expire) {
+        // @filemtime：文件可能已被其他进程并发删除（过期懒删除/gc），避免产生E_WARNING
+        $mtime = @filemtime($filename);
+        if (0 != $expire && ($mtime === false || time() > $mtime + $expire)) {
             //缓存过期删除缓存文件
             @unlink($filename);
             return $default;
@@ -218,8 +222,13 @@ class File implements CacheInterface
         }
         // 只判断存在性与有效期，避免值为假值（0、''、false等）时误判为不存在
         $expire = (int) $header;
+        // @filemtime：文件可能已被其他进程并发删除，避免产生E_WARNING
+        $mtime = @filemtime($filename);
+        if ($mtime === false) {
+            return false;
+        }
 
-        return 0 == $expire || time() <= filemtime($filename) + $expire;
+        return 0 == $expire || time() <= $mtime + $expire;
     }
 
     /**
@@ -243,7 +252,12 @@ class File implements CacheInterface
         if (0 == $expire) {
             return 0;
         }
-        $remaining = filemtime($filename) + $expire - time();
+        // @filemtime：文件可能已被其他进程并发删除，避免产生E_WARNING
+        $mtime = @filemtime($filename);
+        if ($mtime === false) {
+            return null;
+        }
+        $remaining = $mtime + $expire - time();
 
         return $remaining > 0 ? $remaining : null;
     }

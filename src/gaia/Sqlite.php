@@ -135,14 +135,23 @@ class Sqlite implements CacheInterface
         if (!is_array($keys)) {
             $keys = iterator_to_array($keys, false);
         }
+        // 空数组直接返回，避免生成非法的空 IN 子句
+        if (empty($keys)) {
+            return [];
+        }
         $now = time();
         $data = $this->getDb()->table($this->config['table'])->where('key', 'in', $keys)->where("`expire` = 0 OR `expire` >= {$now}")->column('value', 'key');
         $values = [];
         foreach ($keys as $key) {
             if (isset($data[$key])) {
                 $value = $this->unserialize($data[$key]);
-                // 数据损坏时按未命中处理
-                $values[$key] = $this->isUnserializeFailed($value, $data[$key]) ? null : $value;
+                if ($this->isUnserializeFailed($value, $data[$key])) {
+                    // 数据损坏，删除后按未命中处理，与单键 get 行为一致
+                    $this->getDb()->table($this->config['table'])->where('key', $key)->delete();
+                    $values[$key] = is_array($default) ? (isset($default[$key]) ? $default[$key] : null) : $default;
+                } else {
+                    $values[$key] = $value;
+                }
             } elseif (is_array($default)) {
                 // 与File/Redis驱动对齐，支持数组按key映射默认值
                 $values[$key] = isset($default[$key]) ? $default[$key] : null;

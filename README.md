@@ -115,7 +115,7 @@ $cache->dec('cnt', 2);     // 14
 $ttl = $cache->store()->getTtl('cnt');
 ```
 
-> **注意**：`inc` / `dec` / `pull` 为「读取-写回」模式实现，非原子操作，高并发计数场景建议使用 Redis 原生命令（可通过 `handler()` 获取驱动实例）。
+> **注意**：`inc` / `dec` / `pull` 为「读取-写回」模式实现，非原子操作，高并发计数场景建议使用 Redis 原生命令（可通过 `handler()` 获取驱动实例）。`inc` / `dec` 对不存在的 key 或非数字值返回 `false`，不会自动创建 key。
 
 > **说明**：所有驱动对读到损坏数据（反序列化失败、解压失败）的处理一致——删除该缓存项并按「未命中」返回默认值，不会把 `false` 之类的脏值返回给业务。
 
@@ -161,6 +161,7 @@ $cache->setDefaultDriver('my_driver');
 - 读取操作（`get`/`has`/`getTtl`/`delete`）每次都会清理该文件的 stat 缓存，**常驻进程（Workerman/Swoole）中其他进程改写缓存后能立刻感知**，不会因为 PHP 进程级 stat 缓存而误判过期或误删新数据。
 - `has()`/`getTtl()` 只读取文件头 12 字节判断有效期，不读取完整内容。
 - 过期文件采用「读取时删除」的懒清理策略，写入多读取少的 key 会残留占用磁盘，可在定时任务中调用 `$driver->gc()` 主动回收（返回清理数量）；`clear()` 会一并清理旧版 `.php` 遗留文件与写入中断残留的 `.tmp` 文件。
+- `gc()` 会同步扫描缓存目录并逐文件读取，缓存文件数量极大时会阻塞常驻进程的事件循环，建议在业务低峰期调用或分批清理。
 - 支持 `gc()` 的驱动为 File；Redis/Sqlite 依靠自身的 TTL/过期字段机制。
 
 ### Redis 驱动
@@ -175,9 +176,9 @@ $cache->setDefaultDriver('my_driver');
 | prefix | `''` | 自定义键前缀（通过 `OPT_PREFIX` 实现） |
 | database | `1` | redis数据库，0时不执行select |
 | timeout | `2` | 链接及读取超时时间，单位秒 |
+| persistent | `false` | 是否持久链接 |
 
 > **`clear()` 行为**：以连接上实际生效的 `OPT_PREFIX` 为准——存在前缀时通过 `SCAN + DEL` 只删除该前缀下的缓存键（复用外部连接的 `rdb` 驱动同样按外部连接的前缀处理）；**未配置前缀时等价于 `flushDB()`，会清空当前 database 的所有键**（包括其他业务写入的数据）。因此与其他业务共用同一个 database 时，请务必配置独立的 `prefix`。
-| persistent | `false` | 是否持久链接 |
 
 ## 自定义扩展驱动
 

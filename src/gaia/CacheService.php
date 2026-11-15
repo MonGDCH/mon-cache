@@ -112,7 +112,7 @@ class CacheService
      * @param string $evnet 异常事件名
      * @return void
      */
-    public function keep(int $ping = 55, int $max = 3, string $evnet = 'cache_error')
+    public function keep(int $ping = 55, int $max = 3, string $event = 'cache_error')
     {
         if ($ping <= 0) {
             // 未配置Ping间隔，不做保活
@@ -122,7 +122,7 @@ class CacheService
         $this->unKeep();
         // 重新开启保活时重置错误计数
         $this->err_count = 0;
-        $this->ping_timer = \Workerman\Timer::add($ping, function (int $max, string $evnet) {
+        $this->ping_timer = \Workerman\Timer::add($ping, function (int $max, string $event) {
             try {
                 $this->pingDrivers();
                 // 连接正常，清空错误计数
@@ -131,7 +131,7 @@ class CacheService
                 $this->err_count++;
                 Logger::instance()->channel()->error('Cache Service Exception. message => ' . $e->getMessage() . ' code => ' . $e->getCode());
                 // 上报缓存错误事件，上报实际累计错误次数
-                Event::instance()->trigger($evnet, ['err_count' => $this->err_count, 'config' => $this->config]);
+                Event::instance()->trigger($event, ['err_count' => $this->err_count, 'config' => $this->config]);
                 if ($max >= $this->err_count) {
                     // 一定次数内，自动重启服务
                     // 注意：驱动实例会被重建，但复用外部连接的驱动（如 Gaia 的 Rdb 驱动）底层连接
@@ -143,7 +143,7 @@ class CacheService
                     $this->unKeep();
                 }
             }
-        }, [$max, $evnet]);
+        }, [$max, $event]);
     }
 
     /**

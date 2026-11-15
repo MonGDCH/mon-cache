@@ -192,9 +192,14 @@ class Cache
     public function store(string $type = '', array $config = [], bool $reset = false): CacheInterface
     {
         $type = $type ?: $this->config['default'];
-        // 传入临时配置时按临时配置生效，与当前实例配置不一致则重建，避免配置被静默忽略
-        if (!$reset && !empty($config) && isset($this->driver[$type]) && $this->driver_config[$type] !== $config) {
-            $reset = true;
+        // 已实例化时按需重建：传入的临时配置与实例配置不一致（== 忽略键序差异），
+        // 或未传配置但实例并非由 stores 配置构建（避免临时配置泄漏到后续默认调用）
+        if (!$reset && isset($this->driver[$type])) {
+            $expected = empty($config) ? ($this->config['stores'][$type] ?? null) : $config;
+            if ($expected !== null && $this->driver_config[$type] != $expected) {
+                $config = $expected;
+                $reset = true;
+            }
         }
         // 加载驱动
         if (!isset($this->driver[$type]) || $reset) {

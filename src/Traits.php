@@ -76,8 +76,8 @@ trait Traits
             if ($seconds < 0) {
                 throw new InvalidArgumentException('Cache TTL must be a non-negative interval');
             }
-
-            return $seconds;
+            // 本库语义中0为永久，亚秒级/零间隔向上取整为1秒，避免"极短过期"变成永久缓存
+            return $seconds < 1 ? 1 : $seconds;
         }
         if (!is_numeric($ttl)) {
             throw new InvalidArgumentException('Cache TTL must be an integer, a DateInterval or null');

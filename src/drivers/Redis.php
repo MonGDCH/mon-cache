@@ -161,7 +161,8 @@ class Redis implements CacheInterface
             } else {
                 $value = $this->unserialize($cacheData[$i]);
                 if ($this->isUnserializeFailed($value, $cacheData[$i])) {
-                    // 数据损坏，按未命中处理
+                    // 数据损坏，删除后按未命中处理，与单键 get 行为一致
+                    $this->handler()->del($k);
                     $value = is_array($default) ? (isset($default[$k]) ? $default[$k] : null) : $default;
                 }
             }
@@ -326,8 +327,10 @@ class Redis implements CacheInterface
         $handler->setOption(\Redis::OPT_PREFIX, '');
         try {
             $iterator = null;
+            // 前缀中的glob特殊字符需要转义，避免误匹配并误删其他前缀的键
+            $pattern = str_replace(['\\', '*', '?', '['], ['\\\\', '\\*', '\\?', '\\['], $prefix) . '*';
             while (true) {
-                $keys = $handler->scan($iterator, $prefix . '*', 1000);
+                $keys = $handler->scan($iterator, $pattern, 1000);
                 if (false === $keys) {
                     break;
                 }
